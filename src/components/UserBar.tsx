@@ -2,15 +2,15 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { FiUser, FiLogOut } from 'react-icons/fi';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 
 export default function UserBar() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const pathname = usePathname();
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     function handleClick(event: MouseEvent) {
       if (ref.current && !ref.current.contains(event.target as Node)) {
@@ -26,14 +26,16 @@ export default function UserBar() {
   }, [open]);
 
   const handleLogout = async () => {
-    await signOut({ redirect: false });
-    router.push('/auth/login');
+    await signOut({ callbackUrl: '/auth/login' });
   };
+
+  // Only render null after all hooks have been called
+  if (pathname.startsWith('/auth/signin') || pathname.startsWith('/auth/login')) return null;
 
   return (
     <div className="fixed top-4 right-8 z-50" ref={ref}>
       <button
-        className="flex items-center justify-center w-10 h-10 rounded-full bg-white/80 backdrop-blur-md shadow border border-neutral-200 text-neutral-700 hover:bg-neutral-100 focus:outline-none"
+        className="flex items-center justify-center w-10 h-10 rounded-full bg-neutral-800 shadow border border-neutral-700 text-white hover:bg-neutral-700 focus:outline-none"
         onClick={() => setOpen((v) => !v)}
         aria-label="Profile"
       >
