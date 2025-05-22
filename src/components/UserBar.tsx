@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FiUser, FiLogOut } from 'react-icons/fi';
 import { useRouter, usePathname } from 'next/navigation';
-import { signOut } from 'next-auth/react';
+import { supabase } from '@/lib/supabase';
 
 export default function UserBar() {
   const [open, setOpen] = useState(false);
@@ -26,7 +26,8 @@ export default function UserBar() {
   }, [open]);
 
   const handleLogout = async () => {
-    await signOut({ callbackUrl: '/auth/login' });
+    await supabase.auth.signOut();
+    window.location.href = '/auth/login';
   };
 
   // Only render null after all hooks have been called

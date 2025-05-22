@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -16,50 +17,44 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    // Basic validation
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       setLoading(false);
       return;
     }
 
-    try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email: formData.email,
+      password: formData.password,
+      options: {
+        data: {
+          first_name: formData.firstName,
+          last_name: formData.lastName,
         },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-        }),
-      });
+      },
+    });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to register');
-      }
-
-      // Successful registration
-      router.push('/auth/login?registered=true');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
+    if (signUpError) {
+      setError(signUpError.message);
       setLoading(false);
+      return;
     }
+
+    // Optionally, create a profile in your 'profiles' table here
+    // await supabase.from('profiles').insert([{ email: formData.email, name: `${formData.firstName} ${formData.lastName}` }]);
+
+    setLoading(false);
+    router.push('/auth/login?registered=true');
   };
 
   return (

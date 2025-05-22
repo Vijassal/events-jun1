@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -13,40 +14,32 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  useEffect(() => {
+  // Show registration success message if redirected from register
+  React.useEffect(() => {
     if (searchParams.get('registered') === 'true') {
       setSuccess('Registration successful! Please sign in with your new account.');
     }
   }, [searchParams]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
     setLoading(true);
 
-    try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-      const data = await response.json();
+    setLoading(false);
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to login');
-      }
-
-      // Successful login
-      router.push('/dashboard'); // Redirect to dashboard
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setLoading(false);
+    if (signInError) {
+      setError(signInError.message);
+      return;
     }
+
+    router.push('/dashboard');
   };
 
   return (
