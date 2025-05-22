@@ -1,22 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Wedding Planning App
+
+A modern web application for planning and managing wedding events, built with Next.js and Supabase.
+
+## Repository
+
+GitHub Repository: [https://github.com/Vijassal/events.git](https://github.com/Vijassal/events.git)
+
+## Features
+
+- User Authentication (Login/Register)
+- Event Planning Dashboard
+- Profile Management
+- Real-time Updates
+
+## Tech Stack
+
+- Next.js
+- TypeScript
+- Supabase (Authentication & Database)
+- Tailwind CSS
 
 ## Getting Started
 
-First, run the development server:
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/Vijassal/events.git
+   ```
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+3. Set up environment variables:
+   Create a `.env` file with the following variables:
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   ```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+4. Run the development server:
+   ```bash
+   npm run dev
+   ```
+
+## Development Status
+
+Currently implementing core features including:
+- Authentication system
+- User profiles
+- Event management interface
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
