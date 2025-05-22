@@ -122,3 +122,11 @@ events/
 - Add password recovery functionality
 - Set up protected routes
 - Implement session management 
+
+## Tailwind CSS Troubleshooting (May 2025)
+
+- Issue: Tailwind utility classes in `src/components` were not being applied, causing layout and styling issues (e.g., Profile button not appearing at the top right).
+- Diagnosis: The `content` array in `tailwind.config.js` did not include the `src/components` directory, so Tailwind was not scanning those files for class names.
+- Solution: Added `'./src/components/**/*.{js,ts,jsx,tsx,mdx}'` to the `content` array in `tailwind.config.js`.
+- Restarted the dev server to ensure Tailwind recompiled with the new paths.
+- Result: Tailwind classes in all components are now applied correctly, and the Profile button appears at the top right as intended. 
