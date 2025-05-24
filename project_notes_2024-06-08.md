@@ -58,4 +58,57 @@
 
 ---
 
+## Sidebar Conditional Rendering Update (June 8, 2024, 4:52 PM)
+
+- **Sidebar Visibility Logic:**
+  - Updated the layout so the sidebar and user bar are only rendered when the user is signed in with Supabase Auth.
+  - When signed out, the sidebar and user bar are completely hidden; only the main content is shown.
+  - This ensures the sidebar never appears on the login or registration pages, or after logout.
+
+- **Implementation Details:**
+  - In `src/components/ClientLayout.tsx`, added logic to check the Supabase session on mount and listen for auth state changes.
+  - Used `supabase.auth.getSession()` and `supabase.auth.onAuthStateChange` to keep session state in sync.
+  - If no session is present, the sidebar and user bar are not rendered at all.
+  - All other layout and UI logic is preserved.
+
+- **Testing:**
+  - Verified that the sidebar appears immediately after login and persists while signed in.
+  - Verified that the sidebar disappears immediately after logout, and does not appear on public pages.
+  - All other app functionality and UI remain unchanged.
+
+---
+
+## Section Pages Debug & Resolution (June 8, 2024, 10:23 PM)
+
+- **Issue:**
+  - Navigating to routes like `/events`, `/invite`, `/plan`, `/budget`, `/vendors`, `/tasks`, and `/gallery` resulted in 404 errors and blank pages, even though the settings and dashboard pages worked.
+
+- **Debugging Process:**
+  - Verified the project directory in use was `/Users/vishaljassal/Desktop/events` (not the similarly named directory elsewhere).
+  - Compared the structure of a working page (`/settings`) with the non-working sections.
+  - Inspected the `/app/` directory and found that only folders like `settings`, `dashboard`, and `auth` existed, each with their own `page.tsx` file.
+  - Confirmed that there were **no folders or `page.tsx` files** for `events`, `invite`, `plan`, `budget`, `vendors`, `tasks`, or `gallery`.
+  - Determined that Next.js App Router requires a folder and a `page.tsx` file for each route to be accessible.
+
+- **Resolution:**
+  - Created the following folders and files in `/Users/vishaljassal/Desktop/events/app/`:
+    - `events/page.tsx`
+    - `invite/page.tsx`
+    - `plan/page.tsx`
+    - `budget/page.tsx`
+    - `vendors/page.tsx`
+    - `tasks/page.tsx`
+    - `gallery/page.tsx`
+  - Each file contains a simple React component with a heading and a placeholder message, confirming the route is working and ready for further development.
+  - After these changes, all section routes now display their respective headings and placeholders as expected.
+
+- **Key Takeaways:**
+  - For Next.js App Router, every route must have a corresponding folder and `page.tsx` file in the `app/` directory.
+  - Comparing a working route (like `/settings`) with a non-working one is an effective way to debug routing issues.
+  - Always confirm you are working in the correct project directory, especially if there are similarly named folders elsewhere on the system.
+
+- **Next Steps:**
+  - Begin adding forms, lists, and Supabase integration to each section as planned.
+  - Continue to use this structured approach for debugging and feature rollout.
+
 If you need more details or want to add further notes, let me know! 
