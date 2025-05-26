@@ -127,14 +127,24 @@ export default function ParticipantForm({ accountInstanceId, onSuccess, onCancel
     e.preventDefault();
     setLoading(true);
     setError(null);
+    // Map camelCase to snake_case for DB columns
     const participantData = { ...form, account_instance_id: accountInstanceId };
-    console.log('Attempting to insert participant:', participantData);
-    const { error } = await supabase.from('participants').insert([participantData]);
+    const { isChild, childAge, ...rest } = participantData;
+    const participantDataToInsert = {
+      ...rest,
+      is_child: isChild,
+      child_age: childAge ? Number(childAge) : null,
+    };
+    console.log('Attempting to insert participant:', participantDataToInsert);
+    const { data, error } = await supabase.from('participants').insert([participantDataToInsert]);
     setLoading(false);
     if (error) {
-      setError(error.message);
+      setError(error.message || 'Unknown error');
       console.error('Participant insert error:', error);
+      console.error('Full Supabase error:', JSON.stringify(error, null, 2));
+      console.error('Participant data sent:', JSON.stringify(participantDataToInsert, null, 2));
     } else {
+      console.log('Participant insert success, data:', data);
       setSaved(true);
       setTimeout(() => {
         setSaved(false);
@@ -280,12 +290,15 @@ export default function ParticipantForm({ accountInstanceId, onSuccess, onCancel
           {onCancel && <button type="button" onClick={onCancel} style={{ background: '#fff', color: '#db2777', fontWeight: 500, border: '1px solid #e5e7eb', borderRadius: 4, padding: '7px 18px', fontSize: 14, cursor: 'pointer' }}>Cancel</button>}
         </div>
         {isEdit && isAdditional && (
-          <div style={{ color: '#db2777', fontSize: 13, marginTop: 8 }}>
-            Cannot delete additional participant while the main participant exists. Delete the main participant to remove all dependents.
-          </div>
+          <button type="button" onClick={handleDelete} style={{ background: '#fff', color: '#db2777', fontWeight: 500, border: '1px solid #e5e7eb', borderRadius: 4, padding: '7px 18px', fontSize: 14, cursor: 'pointer', marginTop: 8 }}>Delete Additional Participant</button>
         )}
-        {isEdit && !isAdditional && (!form.additional_participants || form.additional_participants.length === 0) && (
-          <button type="button" onClick={handleDelete} style={{ background: '#fff', color: '#db2777', fontWeight: 500, border: '1px solid #e5e7eb', borderRadius: 4, padding: '7px 18px', fontSize: 14, cursor: 'pointer', marginTop: 8 }}>Delete</button>
+        {isEdit && !isAdditional && (
+          <button type="button" onClick={handleDelete} style={{ background: '#fff', color: '#db2777', fontWeight: 500, border: '1px solid #e5e7eb', borderRadius: 4, padding: '7px 18px', fontSize: 14, cursor: 'pointer', marginTop: 8 }}>Delete Participant</button>
+        )}
+        {isEdit && !isAdditional && form.additional_participants && form.additional_participants.length > 0 && (
+          <div style={{ color: '#db2777', fontSize: 13, marginTop: 8 }}>
+            Warning: Deleting this participant will also remove all additional participants.
+          </div>
         )}
         {error && <div style={{ color: 'red', marginTop: 6, fontSize: 12 }}>{error}</div>}
         {isAdditional && (

@@ -85,7 +85,7 @@ export default function InvitePage() {
   const [editParticipant, setEditParticipant] = useState<any>(null);
   const [editAdditional, setEditAdditional] = useState<{ mainId: string, index: number, data: any } | null>(null);
   // Add state for settings tab
-  const [settingsTab, setSettingsTab] = useState<'table' | 'stats'>('table');
+  const [settingsTab, setSettingsTab] = useState<'table' | 'stats' | 'customField'>('table');
   // Add a separate state for the view name input
   const [viewNameInput, setViewNameInput] = useState('');
   const [viewsLoading, setViewsLoading] = useState(false);
@@ -830,175 +830,221 @@ export default function InvitePage() {
         </div>
       </div>
       {/* Table container: stretches end to end with gap on sides and bottom */}
-      <div style={{ flex: 1, width: 'calc(100% - 48px)', margin: '0 24px 0 24px', paddingBottom: 32, background: 'transparent', display: 'flex', justifyContent: 'center', minHeight: '0', overflowX: 'scroll', scrollbarColor: '#6366f1 #e5e7eb', scrollbarWidth: 'thin' }}>
-        <div style={{ width: '100%', minWidth: 900, maxWidth: 1600, borderRadius: '0 0 32px 32px', boxShadow: '0 4px 24px rgba(60, 120, 180, 0.08)', background: '#fff', overflow: 'hidden', border: '1.2px solid #e5e7eb', minHeight: '60vh', marginBottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
-          <table style={{ width: '100%', minWidth: 900, tableLayout: 'fixed', fontFamily: 'Inter, Segoe UI, Arial, sans-serif', fontSize: 14, color: '#222', background: 'transparent' }}>
-            <thead>
-              {/* Filter Row above headers */}
-              <tr>
-                {orderedFields.map((field, idx) => (
-                  <th key={field + '-filter'} style={{ background: '#f4f6fb', padding: '7px 8px', borderBottom: '1px solid #e5e7eb', fontWeight: 500, fontSize: 13, borderTop: 'none', borderRight: idx !== orderedFields.length - 1 ? '1px solid #e5e7eb' : undefined, textAlign: 'center' }}>
-                    <select
-                      value={filters[field] || ''}
-                      onChange={e => handleFilterChange(field, e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '5px 8px',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: 5,
-                        fontSize: 13,
-                        background: '#fff',
-                        fontWeight: 500,
-                        color: '#374151',
-                        outline: 'none',
-                        boxShadow: '0 1px 2px rgba(60,120,180,0.02)',
-                        transition: 'border 0.2s',
-                      }}
-                    >
-                      <option value="">All {field}</option>
-                      <option value="Option 1">Option 1</option>
-                      <option value="Option 2">Option 2</option>
-                    </select>
-                  </th>
-                ))}
-              </tr>
-              {/* Header Row with drag-and-drop */}
-              <tr>
-                {orderedFields.map((field, idx) => (
-                  <th
-                    key={field}
-                    draggable
-                    onDragStart={e => handleDragStart(e, idx)}
-                    onDrop={e => handleDrop(e, idx)}
-                    onDragOver={handleDragOver}
-                    style={{
-                      textAlign: 'center',
-                      padding: '10px 8px',
-                      fontWeight: 700,
-                      fontSize: 14,
-                      color: '#222',
-                      borderBottom: '2px solid #e5e7eb',
-                      background: '#f4f6fb',
-                      whiteSpace: 'nowrap',
-                      position: 'sticky',
-                      top: 0,
-                      zIndex: 2,
-                      cursor: 'grab',
-                      borderTop: 'none',
-                      borderRadius: 0,
-                      borderRight: idx !== orderedFields.length - 1 ? '1px solid #e5e7eb' : undefined,
-                      transition: 'background 0.18s',
-                      userSelect: 'none',
-                      width: colWidths[field],
-                      minWidth: 60,
-                      maxWidth: 400,
-                    }}
-                  >
-                    <span style={{ marginRight: 7 }}>{field}</span>
-                    <span
-                      onMouseDown={e => handleResizeStart(field, e)}
-                      style={{
-                        position: 'absolute',
-                        right: 0,
-                        top: 0,
-                        width: 8,
-                        height: '100%',
-                        cursor: 'col-resize',
-                        zIndex: 10,
-                        userSelect: 'none',
-                        background: 'transparent',
-                        display: 'inline-block',
-                      }}
-                    />
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {/* Placeholder for participant rows */}
-              {participants.map((p, idx) => (
-                <React.Fragment key={p.id}>
-                  <tr style={{ transition: 'background 0.14s', cursor: 'pointer', borderRadius: 8 }} onClick={() => setEditParticipant(p)}>
-                    {orderedFields.map((field, fidx) => {
-                      const dbKey = fieldMap[field] || field;
-                      let value = p[dbKey];
-                      if (field === 'Additional Participants') {
-                        value = Array.isArray(p.additional_participants) ? p.additional_participants.length : 0;
-                      } else {
-                        if (Array.isArray(value)) value = value.join(', ');
-                        if (typeof value === 'object' && value !== null) value = JSON.stringify(value);
-                      }
-                      // Center First Name and Last Name
-                      const isCenter = field === 'First Name' || field === 'Last Name';
-                      return (
-                        <td
-                          key={field + '-' + fidx}
-                          style={{
-                            padding: '9px 8px',
-                            fontSize: 13,
-                            color: '#374151',
-                            background: '#fff',
-                            borderBottom: '1px solid #e5e7eb',
-                            whiteSpace: 'nowrap',
-                            maxWidth: colWidths[field],
-                            minWidth: 60,
-                            width: colWidths[field],
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            borderRadius: fidx === 0 ? '0 0 0 10px' : fidx === orderedFields.length - 1 ? '0 0 10px 0' : 0,
-                            fontWeight: 500,
-                            transition: 'background 0.14s',
-                            borderRight: fidx !== orderedFields.length - 1 ? '1px solid #f1f1f1' : undefined,
-                            textAlign: 'center',
-                          }}
-                        >
-                          {value || ''}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                  {/* Render additional participants as italicized rows */}
-                  {Array.isArray(p.additional_participants) && p.additional_participants.length > 0 && p.additional_participants.map((ap: any, apIdx: number) => (
-                    <tr key={p.id + '-ap-' + apIdx} style={{ fontStyle: 'italic', background: '#f8fafc' }} onClick={() => setEditAdditional({ mainId: p.id, index: apIdx, data: ap })}>
-                      {orderedFields.map((field, fidx) => {
-                        const dbKey = fieldMap[field] || field;
-                        let value = ap[dbKey];
-                        if (Array.isArray(value)) value = value.join(', ');
-                        if (typeof value === 'object' && value !== null) value = JSON.stringify(value);
-                        // Center First Name and Last Name
-                        const isCenter = field === 'First Name' || field === 'Last Name';
-                        return (
-                          <td
-                            key={field + '-ap-' + fidx}
+      <div
+        className="horizontal-scroll-container"
+        style={{
+          flex: 1,
+          width: 'calc(100% - 48px)',
+          margin: '0 24px',
+          paddingBottom: 32,
+          background: 'transparent',
+          display: 'flex',
+          justifyContent: 'center',
+          overflowX: orderedFields.length > 11 ? 'auto' : 'hidden',
+          overflowY: 'hidden',
+          minHeight: 60,
+          WebkitOverflowScrolling: 'touch',
+          maxHeight: 480,
+          position: 'relative',
+        }}
+      >
+        <div style={{ minWidth: (orderedFields.length * 120) + 'px' }}>
+          <div
+            style={{
+              borderRadius: '0 0 32px 32px',
+              boxShadow: '0 4px 24px rgba(60, 120, 180, 0.08)',
+              background: '#fff',
+              overflow: 'hidden',
+              border: '1.2px solid #e5e7eb',
+              marginBottom: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'flex-start',
+            }}
+          >
+            <div
+              className="horizontal-scroll-container"
+              style={{
+                overflowX: 'auto',
+                overflowY: 'hidden',
+                width: '100%',
+                minHeight: 60,
+                WebkitOverflowScrolling: 'touch',
+                maxHeight: 480,
+                position: 'relative',
+              }}
+            >
+              <div style={{ minWidth: (orderedFields.length * 120) + 'px' }}>
+                <table style={{ minWidth: (orderedFields.length * 120) + 'px', tableLayout: 'fixed', fontFamily: 'Inter, Segoe UI, Arial, sans-serif', fontSize: 14, color: '#222', background: 'transparent' }}>
+                  <thead>
+                    {/* Filter Row above headers */}
+                    <tr>
+                      {orderedFields.map((field, idx) => (
+                        <th key={field + '-filter'} style={{ background: '#f4f6fb', padding: '7px 8px', borderBottom: '1px solid #e5e7eb', fontWeight: 500, fontSize: 13, borderTop: 'none', borderRight: idx !== orderedFields.length - 1 ? '1px solid #e5e7eb' : undefined, textAlign: 'center' }}>
+                          <select
+                            value={filters[field] || ''}
+                            onChange={e => handleFilterChange(field, e.target.value)}
                             style={{
-                              padding: '9px 8px',
+                              width: '100%',
+                              padding: '5px 8px',
+                              border: '1px solid #e5e7eb',
+                              borderRadius: 5,
                               fontSize: 13,
-                              color: '#6366f1',
-                              background: '#f8fafc',
-                              borderBottom: '1px solid #e5e7eb',
-                              whiteSpace: 'nowrap',
-                              maxWidth: colWidths[field],
-                              minWidth: 60,
-                              width: colWidths[field],
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              borderRadius: fidx === 0 ? '0 0 0 10px' : fidx === orderedFields.length - 1 ? '0 0 10px 0' : 0,
-                              fontWeight: 400,
-                              fontStyle: 'italic',
-                              borderRight: fidx !== orderedFields.length - 1 ? '1px solid #f1f1f1' : undefined,
-                              textAlign: 'center',
+                              background: '#fff',
+                              fontWeight: 500,
+                              color: '#374151',
+                              outline: 'none',
+                              boxShadow: '0 1px 2px rgba(60,120,180,0.02)',
+                              transition: 'border 0.2s',
                             }}
                           >
-                            {value || ''}
-                          </td>
-                        );
-                      })}
+                            <option value="">All {field}</option>
+                            <option value="Option 1">Option 1</option>
+                            <option value="Option 2">Option 2</option>
+                          </select>
+                        </th>
+                      ))}
                     </tr>
-                  ))}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
+                    {/* Header Row with drag-and-drop */}
+                    <tr>
+                      {orderedFields.map((field, idx) => (
+                        <th
+                          key={field}
+                          draggable
+                          onDragStart={e => handleDragStart(e, idx)}
+                          onDrop={e => handleDrop(e, idx)}
+                          onDragOver={handleDragOver}
+                          style={{
+                            textAlign: 'center',
+                            padding: '10px 8px',
+                            fontWeight: 700,
+                            fontSize: 14,
+                            color: '#222',
+                            borderBottom: '2px solid #e5e7eb',
+                            background: '#f4f6fb',
+                            whiteSpace: 'nowrap',
+                            position: 'sticky',
+                            top: 0,
+                            zIndex: 2,
+                            cursor: 'grab',
+                            borderTop: 'none',
+                            borderRadius: 0,
+                            borderRight: idx !== orderedFields.length - 1 ? '1px solid #e5e7eb' : undefined,
+                            transition: 'background 0.18s',
+                            userSelect: 'none',
+                            width: colWidths[field],
+                            minWidth: 60,
+                            maxWidth: 400,
+                          }}
+                        >
+                          <span style={{ marginRight: 7 }}>{field}</span>
+                          <span
+                            onMouseDown={e => handleResizeStart(field, e)}
+                            style={{
+                              position: 'absolute',
+                              right: 0,
+                              top: 0,
+                              width: 8,
+                              height: '100%',
+                              cursor: 'col-resize',
+                              zIndex: 10,
+                              userSelect: 'none',
+                              background: 'transparent',
+                              display: 'inline-block',
+                            }}
+                          />
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {/* Placeholder for participant rows */}
+                    {participants.map((p, idx) => (
+                      <React.Fragment key={p.id}>
+                        <tr style={{ transition: 'background 0.14s', cursor: 'pointer', borderRadius: 8 }} onClick={() => setEditParticipant(p)}>
+                          {orderedFields.map((field, fidx) => {
+                            const dbKey = fieldMap[field] || field;
+                            let value = p[dbKey];
+                            if (field === 'Additional Participants') {
+                              value = Array.isArray(p.additional_participants) ? p.additional_participants.length : 0;
+                            } else {
+                              if (Array.isArray(value)) value = value.join(', ');
+                              if (typeof value === 'object' && value !== null) value = JSON.stringify(value);
+                            }
+                            // Center First Name and Last Name
+                            const isCenter = field === 'First Name' || field === 'Last Name';
+                            return (
+                              <td
+                                key={field + '-' + fidx}
+                                style={{
+                                  padding: '9px 8px',
+                                  fontSize: 13,
+                                  color: '#374151',
+                                  background: '#fff',
+                                  borderBottom: '1px solid #e5e7eb',
+                                  whiteSpace: 'nowrap',
+                                  maxWidth: colWidths[field],
+                                  minWidth: 60,
+                                  width: colWidths[field],
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  borderRadius: fidx === 0 ? '0 0 0 10px' : fidx === orderedFields.length - 1 ? '0 0 10px 0' : 0,
+                                  fontWeight: 500,
+                                  transition: 'background 0.14s',
+                                  borderRight: fidx !== orderedFields.length - 1 ? '1px solid #f1f1f1' : undefined,
+                                  textAlign: 'center',
+                                }}
+                              >
+                                {value || ''}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                        {/* Render additional participants as italicized rows */}
+                        {Array.isArray(p.additional_participants) && p.additional_participants.length > 0 && p.additional_participants.map((ap: any, apIdx: number) => (
+                          <tr key={p.id + '-ap-' + apIdx} style={{ fontStyle: 'italic', background: '#f8fafc' }} onClick={() => setEditAdditional({ mainId: p.id, index: apIdx, data: ap })}>
+                            {orderedFields.map((field, fidx) => {
+                              const dbKey = fieldMap[field] || field;
+                              let value = ap[dbKey];
+                              if (Array.isArray(value)) value = value.join(', ');
+                              if (typeof value === 'object' && value !== null) value = JSON.stringify(value);
+                              // Center First Name and Last Name
+                              const isCenter = field === 'First Name' || field === 'Last Name';
+                              return (
+                                <td
+                                  key={field + '-ap-' + fidx}
+                                  style={{
+                                    padding: '9px 8px',
+                                    fontSize: 13,
+                                    color: '#6366f1',
+                                    background: '#f8fafc',
+                                    borderBottom: '1px solid #e5e7eb',
+                                    whiteSpace: 'nowrap',
+                                    maxWidth: colWidths[field],
+                                    minWidth: 60,
+                                    width: colWidths[field],
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    borderRadius: fidx === 0 ? '0 0 0 10px' : fidx === orderedFields.length - 1 ? '0 0 10px 0' : 0,
+                                    fontWeight: 400,
+                                    fontStyle: 'italic',
+                                    borderRight: fidx !== orderedFields.length - 1 ? '1px solid #f1f1f1' : undefined,
+                                    textAlign: 'center',
+                                  }}
+                                >
+                                  {value || ''}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       {/* Settings Modal (UI only, with logic for custom fields, visibility, order, and views) */}
@@ -1009,51 +1055,12 @@ export default function InvitePage() {
             {/* Tabs */}
             <div style={{ display: 'flex', gap: 0, marginBottom: 18, borderBottom: '1.5px solid #e5e7eb' }}>
               <button onClick={() => setSettingsTab('table')} style={{ flex: 1, padding: '10px 0', background: 'none', border: 'none', borderBottom: settingsTab === 'table' ? '3px solid #6366f1' : 'none', color: settingsTab === 'table' ? '#6366f1' : '#374151', fontWeight: 700, fontSize: 15, cursor: 'pointer', transition: 'color 0.2s' }}>Table Settings</button>
+              <button onClick={() => setSettingsTab('customField')} style={{ flex: 1, padding: '10px 0', background: 'none', border: 'none', borderBottom: settingsTab === 'customField' ? '3px solid #6366f1' : 'none', color: settingsTab === 'customField' ? '#6366f1' : '#374151', fontWeight: 700, fontSize: 15, cursor: 'pointer', transition: 'color 0.2s' }}>Custom Field</button>
               <button onClick={() => setSettingsTab('stats')} style={{ flex: 1, padding: '10px 0', background: 'none', border: 'none', borderBottom: settingsTab === 'stats' ? '3px solid #6366f1' : 'none', color: settingsTab === 'stats' ? '#6366f1' : '#374151', fontWeight: 700, fontSize: 15, cursor: 'pointer', transition: 'color 0.2s' }}>Stat Blocks</button>
             </div>
             {/* Tab Content */}
             {settingsTab === 'table' && (
               <>
-                {/* Custom Fields */}
-                <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontWeight: 600, marginBottom: 6 }}>Custom Fields</div>
-                  <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-                    <input
-                      type="text"
-                      placeholder="Field label"
-                      value={newField.label}
-                      onChange={e => setNewField(f => ({ ...f, label: e.target.value }))}
-                      style={{ padding: '4px 7px', borderRadius: 4, border: '1px solid #e5e7eb', fontSize: 13, flex: 1 }}
-                    />
-                    <select
-                      value={newField.type}
-                      onChange={e => setNewField(f => ({ ...f, type: e.target.value as CustomField['type'] }))}
-                      style={{ padding: '4px 7px', borderRadius: 4, border: '1px solid #e5e7eb', fontSize: 13 }}
-                    >
-                      <option value="text">Text</option>
-                      <option value="dropdown">Dropdown</option>
-                      <option value="checkbox">Checkbox</option>
-                    </select>
-                    {newField.type === 'dropdown' && (
-                      <input
-                        type="text"
-                        placeholder="Options (comma separated)"
-                        value={newField.options}
-                        onChange={e => setNewField(f => ({ ...f, options: e.target.value }))}
-                        style={{ padding: '4px 7px', borderRadius: 4, border: '1px solid #e5e7eb', fontSize: 13, flex: 1 }}
-                      />
-                    )}
-                    <button onClick={handleAddCustomField} style={{ padding: '4px 10px', borderRadius: 4, border: '1px solid #e5e7eb', background: '#f4f6fb', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Add</button>
-                  </div>
-                  <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
-                    {customFields.map(f => (
-                      <li key={f.id} style={{ marginBottom: 4, display: 'flex', alignItems: 'center', fontSize: 13 }}>
-                        <span style={{ marginRight: 8 }}>{f.label} ({f.type})</span>
-                        <button onClick={() => handleDeleteCustomField(f.id)} style={{ marginLeft: 8, color: '#db2777', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}>Delete</button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
                 {/* Field Visibility and Reorder */}
                 <div style={{ marginBottom: 14 }}>
                   <div style={{ fontWeight: 600, marginBottom: 6 }}>Field Visibility & Order</div>
@@ -1089,60 +1096,6 @@ export default function InvitePage() {
                     ))}
                   </ul>
                 </div>
-                {/* Saved Views */}
-                <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontWeight: 600, marginBottom: 6 }}>Saved Views</div>
-                  {viewsLoading ? (
-                    <div>Loading views...</div>
-                  ) : views.length === 0 ? (
-                    <div>No views found.</div>
-                  ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                      <thead>
-                        <tr style={{ background: '#f4f6fb' }}>
-                          <th style={{ padding: '5px 0', fontWeight: 500 }}>View</th>
-                          <th style={{ padding: '5px 0', fontWeight: 500 }}>Select</th>
-                          <th style={{ padding: '5px 0', fontWeight: 500 }}>Default</th>
-                          <th style={{ padding: '5px 0', fontWeight: 500 }}>Delete</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {views.map(v => (
-                          <tr key={v.name} style={{ background: currentView === v.name ? '#e0e7ff' : '#fff' }}>
-                            <td style={{ padding: '5px 0', textAlign: 'center' }}>{v.name}</td>
-                            <td style={{ textAlign: 'center' }}>
-                              <input
-                                type="checkbox"
-                                checked={currentView === v.name}
-                                onChange={() => handleSelectView(v.name)}
-                              />
-                            </td>
-                            <td style={{ textAlign: 'center' }}>
-                              <input
-                                type="checkbox"
-                                checked={v.isDefault}
-                                onChange={() => handleSetDefaultView(v.name)}
-                              />
-                            </td>
-                            <td style={{ textAlign: 'center' }}>
-                              <button onClick={() => handleDeleteView(v.name)} style={{ color: '#db2777', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}>Delete</button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                  <div style={{ marginTop: 8, display: 'flex', alignItems: 'center' }}>
-                    <input
-                      type="text"
-                      placeholder="View name"
-                      value={viewNameInput}
-                      onChange={e => setViewNameInput(e.target.value)}
-                      style={{ marginRight: 8, padding: '4px 7px', borderRadius: 4, border: '1px solid #e5e7eb', fontSize: 13 }}
-                    />
-                    <button onClick={() => handleSaveView(viewNameInput)} style={{ padding: '4px 10px', borderRadius: 4, border: '1px solid #e5e7eb', background: '#f4f6fb', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Save</button>
-                  </div>
-                </div>
                 <div style={{ marginBottom: 14 }}>
                   <div style={{ fontWeight: 600, marginBottom: 6 }}>Child Participant Exclusion Age</div>
                   <input
@@ -1155,6 +1108,29 @@ export default function InvitePage() {
                   <span style={{ marginLeft: 8, color: '#888', fontSize: 13 }}>
                     Children at or below this age are excluded from participant stats.
                   </span>
+                </div>
+              </>
+            )}
+            {settingsTab === 'customField' && (
+              <>
+                {/* Custom Fields */}
+                <div style={{ marginBottom: 14, maxHeight: 260, overflowY: 'auto' }}>
+                  <div style={{ fontWeight: 600, marginBottom: 6 }}>Custom Fields</div>
+                  <AddCustomFieldForm
+                    newField={newField}
+                    setNewField={setNewField}
+                    onAdd={handleAddCustomField}
+                  />
+                  <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                    {customFields.map(f => (
+                      <CustomFieldListItem
+                        key={f.id}
+                        field={f}
+                        onDelete={handleDeleteCustomField}
+                        onEdit={handleEditCustomField}
+                      />
+                    ))}
+                  </ul>
                 </div>
               </>
             )}
@@ -1208,6 +1184,60 @@ export default function InvitePage() {
                 </ul>
               </div>
             )}
+            {/* Saved Views: always visible below tab content */}
+            <div style={{ marginBottom: 14, marginTop: 12, borderTop: '1px solid #e5e7eb', paddingTop: 12 }}>
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>Saved Views</div>
+              {viewsLoading ? (
+                <div>Loading views...</div>
+              ) : views.length === 0 ? (
+                <div>No views found.</div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: '#f4f6fb' }}>
+                      <th style={{ padding: '5px 0', fontWeight: 500 }}>View</th>
+                      <th style={{ padding: '5px 0', fontWeight: 500 }}>Select</th>
+                      <th style={{ padding: '5px 0', fontWeight: 500 }}>Default</th>
+                      <th style={{ padding: '5px 0', fontWeight: 500 }}>Delete</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {views.map(v => (
+                      <tr key={v.name} style={{ background: currentView === v.name ? '#e0e7ff' : '#fff' }}>
+                        <td style={{ padding: '5px 0', textAlign: 'center' }}>{v.name}</td>
+                        <td style={{ textAlign: 'center' }}>
+                          <input
+                            type="checkbox"
+                            checked={currentView === v.name}
+                            onChange={() => handleSelectView(v.name)}
+                          />
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <input
+                            type="checkbox"
+                            checked={v.isDefault}
+                            onChange={() => handleSetDefaultView(v.name)}
+                          />
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button onClick={() => handleDeleteView(v.name)} style={{ color: '#db2777', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}>Delete</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              <div style={{ marginTop: 8, display: 'flex', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  placeholder="View name"
+                  value={viewNameInput}
+                  onChange={e => setViewNameInput(e.target.value)}
+                  style={{ marginRight: 8, padding: '4px 7px', borderRadius: 4, border: '1px solid #e5e7eb', fontSize: 13 }}
+                />
+                <button onClick={() => handleSaveView(viewNameInput)} style={{ padding: '4px 10px', borderRadius: 4, border: '1px solid #e5e7eb', background: '#f4f6fb', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Save</button>
+              </div>
+            </div>
             <button onClick={handleSettingsClose} style={{ background: '#f4f6fb', color: '#374151', border: '1px solid #e5e7eb', borderRadius: 6, padding: '7px 18px', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginTop: 12, width: '100%' }}>Close</button>
             {notification && (
               <div style={{ position: 'absolute', bottom: 18, left: '50%', transform: 'translateX(-50%)', background: '#e0e7ff', color: '#374151', borderRadius: 6, padding: '7px 18px', fontSize: 13, fontWeight: 600, boxShadow: '0 2px 8px rgba(60,120,180,0.08)', marginTop: 12, textAlign: 'center' }}>{notification}</div>
@@ -1263,6 +1293,218 @@ export default function InvitePage() {
           </div>
         </div>
       )}
+      <style>{`
+        .horizontal-scroll-container::-webkit-scrollbar {
+          height: 12px;
+          background: #f3f4f6;
+        }
+        .horizontal-scroll-container::-webkit-scrollbar-thumb {
+          background: #a5b4fc;
+          border-radius: 6px;
+        }
+        .horizontal-scroll-container::-webkit-scrollbar-track {
+          background: #f3f4f6;
+          border-radius: 6px;
+        }
+        .horizontal-scroll-container {
+          scrollbar-width: thin;
+          scrollbar-color: #a5b4fc #f3f4f6;
+        }
+      `}</style>
     </>
+  );
+}
+
+function CustomFieldListItem({ field, onDelete, onEdit }: { field: CustomField, onDelete: (id: string) => void, onEdit: (id: string, label: string, type: CustomField['type'], options: string) => void }) {
+  const [editing, setEditing] = React.useState(false);
+  const [label, setLabel] = React.useState(field.label);
+  const [type, setType] = React.useState(field.type);
+  const [optionsArr, setOptionsArr] = React.useState<string[]>(field.options ? [...field.options] : []);
+  React.useEffect(() => {
+    setLabel(field.label);
+    setType(field.type);
+    setOptionsArr(field.options ? [...field.options] : []);
+  }, [field]);
+  if (!editing) {
+    return (
+      <li style={{ marginBottom: 4, display: 'flex', alignItems: 'center', fontSize: 13 }}>
+        <span style={{ marginRight: 8 }}>{field.label} ({field.type}{field.type === 'dropdown' && field.options ? ': ' + field.options.join(', ') : ''})</span>
+        <button onClick={() => setEditing(true)} style={{ marginLeft: 8, color: '#6366f1', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}>Edit</button>
+        <button onClick={() => onDelete(field.id)} style={{ marginLeft: 8, color: '#db2777', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}>Delete</button>
+      </li>
+    );
+  }
+  return (
+    <li style={{ marginBottom: 4, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', fontSize: 13, background: '#f4f6fb', borderRadius: 6, padding: '8px 8px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+        <input
+          type="text"
+          value={label}
+          onChange={e => setLabel(e.target.value)}
+          style={{ padding: '4px 7px', borderRadius: 4, border: '1px solid #e5e7eb', fontSize: 13, marginRight: 6, minWidth: 80 }}
+        />
+        <select
+          value={type}
+          onChange={e => setType(e.target.value as CustomField['type'])}
+          style={{ padding: '4px 7px', borderRadius: 4, border: '1px solid #e5e7eb', fontSize: 13, marginRight: 6 }}
+        >
+          <option value="text">Text</option>
+          <option value="dropdown">Dropdown</option>
+          <option value="checkbox">Checkbox</option>
+        </select>
+      </div>
+      {type === 'dropdown' && (
+        <div style={{ marginTop: 8, width: '100%' }}>
+          <div style={{ fontWeight: 500, marginBottom: 4 }}>Dropdown Options:</div>
+          {optionsArr.map((opt, idx) => (
+            <div key={idx} style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+              <input
+                type="text"
+                value={opt}
+                onChange={e => {
+                  const newArr = [...optionsArr];
+                  newArr[idx] = e.target.value;
+                  setOptionsArr(newArr);
+                }}
+                style={{ padding: '4px 7px', borderRadius: 4, border: '1px solid #e5e7eb', fontSize: 13, minWidth: 120 }}
+              />
+              <button
+                onClick={() => setOptionsArr(arr => arr.filter((_, i) => i !== idx))}
+                style={{ marginLeft: 6, color: '#db2777', background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, lineHeight: 1, borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s' }}
+                title="Remove"
+                onMouseOver={e => (e.currentTarget.style.background = '#fbeff2')}
+                onMouseOut={e => (e.currentTarget.style.background = 'none')}
+              >
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="9" stroke="#db2777" strokeWidth="1.5"/><path d="M7 7L13 13M13 7L7 13" stroke="#db2777" strokeWidth="1.5" strokeLinecap="round"/></svg>
+              </button>
+            </div>
+          ))}
+          <button
+            onClick={() => setOptionsArr(arr => [...arr, ''])}
+            style={{ marginTop: 4, color: '#6366f1', background: 'none', border: '1px solid #6366f1', borderRadius: 4, cursor: 'pointer', fontSize: 13, padding: '2px 10px' }}
+          >+ Add Option</button>
+          <div style={{ borderTop: '1px solid #e5e7eb', margin: '16px 0 0 0', width: '100%', height: 1 }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginTop: 10 }}>
+            <button
+              onClick={() => { setEditing(false); onDelete(field.id); }}
+              style={{ color: '#db2777', background: 'none', border: '1px solid #db2777', borderRadius: 4, cursor: 'pointer', fontSize: 13, padding: '2px 16px', fontWeight: 600 }}
+            >Delete</button>
+            <button
+              onClick={() => {
+                onEdit(field.id, label, type, type === 'dropdown' ? optionsArr.join(',') : '');
+                setEditing(false);
+              }}
+              style={{ color: '#fff', background: 'linear-gradient(90deg, #6366f1 0%, #db2777 100%)', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 13, padding: '2px 18px', fontWeight: 600 }}
+            >Save</button>
+          </div>
+        </div>
+      )}
+      {type !== 'dropdown' && (
+        <div style={{ borderTop: '1px solid #e5e7eb', margin: '16px 0 0 0', width: '100%', height: 1 }} />
+      )}
+      {type !== 'dropdown' && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginTop: 10 }}>
+          <button
+            onClick={() => { setEditing(false); onDelete(field.id); }}
+            style={{ color: '#db2777', background: 'none', border: '1px solid #db2777', borderRadius: 4, cursor: 'pointer', fontSize: 13, padding: '2px 16px', fontWeight: 600 }}
+          >Delete</button>
+          <button
+            onClick={() => {
+              onEdit(field.id, label, type, '');
+              setEditing(false);
+            }}
+            style={{ color: '#fff', background: 'linear-gradient(90deg, #6366f1 0%, #db2777 100%)', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 13, padding: '2px 18px', fontWeight: 600 }}
+          >Save</button>
+        </div>
+      )}
+    </li>
+  );
+}
+
+// Add this component above InvitePage
+function AddCustomFieldForm({ newField, setNewField, onAdd }: { newField: { label: string; type: CustomField['type']; options: string }, setNewField: (f: any) => void, onAdd: () => void }) {
+  const [optionsArr, setOptionsArr] = React.useState<string[]>(() => newField.type === 'dropdown' && newField.options ? newField.options.split(',').map(o => o.trim()).filter(Boolean) : []);
+  React.useEffect(() => {
+    if (newField.type === 'dropdown') {
+      setOptionsArr(newField.options ? newField.options.split(',').map(o => o.trim()).filter(Boolean) : []);
+    }
+  }, [newField.type, newField.options]);
+  const handleSave = () => {
+    if (newField.type === 'dropdown') {
+      setNewField((f: any) => ({ ...f, options: optionsArr.join(',') }));
+    }
+    onAdd();
+    setOptionsArr([]);
+  };
+  const handleClear = () => {
+    setNewField({ label: '', type: 'text', options: '' });
+    setOptionsArr([]);
+  };
+  const canSave = newField.label.trim() && (newField.type !== 'dropdown' || optionsArr.filter(opt => opt.trim()).length > 0);
+  return (
+    <div style={{ marginBottom: 18, background: '#f8fafc', borderRadius: 6, padding: '10px 10px 0 10px', border: '1px solid #e5e7eb', maxWidth: 420 }}>
+      <div style={{ display: 'flex', alignItems: 'center', width: '100%', marginBottom: 8 }}>
+        <input
+          type="text"
+          placeholder="Field label"
+          value={newField.label}
+          onChange={e => setNewField((f: any) => ({ ...f, label: e.target.value }))}
+          style={{ padding: '4px 7px', borderRadius: 4, border: '1px solid #e5e7eb', fontSize: 13, marginRight: 6, minWidth: 80 }}
+        />
+        <select
+          value={newField.type}
+          onChange={e => setNewField((f: any) => ({ ...f, type: e.target.value as CustomField['type'], options: '' }))}
+          style={{ padding: '4px 7px', borderRadius: 4, border: '1px solid #e5e7eb', fontSize: 13, marginRight: 6 }}
+        >
+          <option value="text">Text</option>
+          <option value="dropdown">Dropdown</option>
+          <option value="checkbox">Checkbox</option>
+        </select>
+      </div>
+      {newField.type === 'dropdown' && (
+        <div style={{ width: '100%' }}>
+          <div style={{ fontWeight: 500, marginBottom: 4 }}>Dropdown Options:</div>
+          {optionsArr.map((opt, idx) => (
+            <div key={idx} style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+              <input
+                type="text"
+                value={opt}
+                onChange={e => {
+                  const newArr = [...optionsArr];
+                  newArr[idx] = e.target.value;
+                  setOptionsArr(newArr);
+                }}
+                style={{ padding: '4px 7px', borderRadius: 4, border: '1px solid #e5e7eb', fontSize: 13, minWidth: 120 }}
+              />
+              <button
+                onClick={() => setOptionsArr(arr => arr.filter((_, i) => i !== idx))}
+                style={{ marginLeft: 6, color: '#db2777', background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, lineHeight: 1, borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s' }}
+                title="Remove"
+                onMouseOver={e => (e.currentTarget.style.background = '#fbeff2')}
+                onMouseOut={e => (e.currentTarget.style.background = 'none')}
+              >
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="9" stroke="#db2777" strokeWidth="1.5"/><path d="M7 7L13 13M13 7L7 13" stroke="#db2777" strokeWidth="1.5" strokeLinecap="round"/></svg>
+              </button>
+            </div>
+          ))}
+          <button
+            onClick={() => setOptionsArr(arr => [...arr, ''])}
+            style={{ marginTop: 4, color: '#6366f1', background: 'none', border: '1px solid #6366f1', borderRadius: 4, cursor: 'pointer', fontSize: 13, padding: '2px 10px' }}
+          >+ Add Option</button>
+        </div>
+      )}
+      <div style={{ borderTop: '1px solid #e5e7eb', margin: '16px 0 0 0', width: '100%', height: 1 }} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginTop: 10, marginBottom: 4 }}>
+        <button
+          onClick={handleClear}
+          style={{ color: '#db2777', background: 'none', border: '1px solid #db2777', borderRadius: 4, cursor: 'pointer', fontSize: 13, padding: '2px 16px', fontWeight: 600 }}
+        >Clear</button>
+        <button
+          onClick={handleSave}
+          disabled={!canSave}
+          style={{ color: canSave ? '#fff' : '#aaa', background: canSave ? 'linear-gradient(90deg, #6366f1 0%, #db2777 100%)' : '#e5e7eb', border: 'none', borderRadius: 4, cursor: canSave ? 'pointer' : 'not-allowed', fontSize: 13, padding: '2px 18px', fontWeight: 600 }}
+        >Save</button>
+      </div>
+    </div>
   );
 } 

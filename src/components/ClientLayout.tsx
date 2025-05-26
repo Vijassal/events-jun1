@@ -4,6 +4,7 @@ import UserBar from './UserBar';
 import Sidebar from './Sidebar';
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { FeatureToggleProvider } from '../context/FeatureToggleContext';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
@@ -32,14 +33,16 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   }
 
   return (
-    <div className="flex h-screen">
-      <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} />
-      <div className={sidebarOpen ? 'ml-60 flex-1' : 'ml-16 flex-1'}>
-        <UserBar />
-        <main style={{ height: '100vh', overflow: 'hidden' }}>
-          {children}
-        </main>
+    <FeatureToggleProvider>
+      <div className="flex min-h-screen">
+        <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} />
+        <div className={sidebarOpen ? 'ml-60 flex-1' : 'ml-16 flex-1'}>
+          <UserBar />
+          <main style={{ height: '100vh', overflow: 'hidden' }}>
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </FeatureToggleProvider>
   );
 } 
