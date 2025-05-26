@@ -1,22 +1,22 @@
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react';
-import { FiChevronLeft, FiChevronRight, FiHome, FiCalendar, FiLogOut, FiUser, FiSettings, FiUserPlus, FiMap, FiCheckSquare, FiDollarSign, FiBriefcase, FiImage } from 'react-icons/fi';
+import { FiChevronLeft, FiChevronRight, FiHome, FiCalendar, FiLogOut, FiUser, FiSettings, FiUserPlus, FiMap, FiCheckSquare, FiDollarSign, FiBriefcase, FiImage, FiMessageSquare } from 'react-icons/fi';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { supabase } from '../../src/lib/supabase';
 
 const navLinksTop = [
-  { name: 'Dashboard', href: '/dashboard', icon: <FiHome size={20} /> },
-  { name: 'Events', href: '/events', icon: <FiCalendar size={20} /> },
-  { name: 'Settings', href: '/settings', icon: <FiSettings size={20} /> },
+  { name: 'Dashboard', href: '/dashboard', icon: FiHome },
+  { name: 'Events', href: '/events', icon: FiCalendar },
+  { name: 'Vendors', href: '/vendors', icon: FiBriefcase },
 ];
 
 const baseSections = [
   { name: 'Invite', href: '/invite', icon: FiUserPlus },
   { name: 'Plan', href: '/plan', icon: FiMap },
-  { name: 'Tasks', href: '/tasks', icon: FiCheckSquare },
+  { name: 'Chat', href: '/chat', icon: FiMessageSquare },
   { name: 'Budget', href: '/budget', icon: FiDollarSign },
-  { name: 'Vendors', href: '/vendors', icon: FiBriefcase },
   { name: 'Gallery', href: '/gallery', icon: FiImage },
 ];
 
@@ -79,6 +79,38 @@ export default function Sidebar({ open: controlledOpen, setOpen: controlledSetOp
     return () => window.removeEventListener('featureToggleChanged', handler);
   }, []);
 
+  const renderSectionLink = (section: typeof sections[number]) => {
+    const Icon = section.icon as React.ComponentType<{ size?: number }>; 
+    if (open) {
+      return (
+        <div key={section.name} className="relative flex items-center w-full mb-1">
+          <Link
+            href={section.href}
+            className="flex-1 text-center py-2 rounded-md border border-neutral-700/60 text-neutral-200 hover:bg-neutral-800 transition-colors text-sm"
+            style={{ marginRight: '36px' }}
+          >
+            {section.name}
+          </Link>
+          <span className="absolute right-0 flex items-center text-neutral-200">
+            <Icon size={20} />
+          </span>
+        </div>
+      );
+    }
+    return (
+      <Link
+        key={section.name}
+        href={section.href}
+        className="group relative flex items-center justify-center w-10 h-10 rounded-md border border-neutral-700/60 text-neutral-200 hover:bg-neutral-800 transition-colors mb-1"
+      >
+        <Icon size={20} />
+        <span className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2 whitespace-nowrap bg-neutral-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-100 z-50">
+          {section.name}
+        </span>
+      </Link>
+    );
+  };
+
   return (
     <aside
       className={`h-screen fixed left-0 top-0 z-40 flex flex-col justify-between transition-all duration-300 bg-neutral-900 border-r border-neutral-800
@@ -112,6 +144,7 @@ export default function Sidebar({ open: controlledOpen, setOpen: controlledSetOp
             .filter((link, idx) => open || idx === 0) // Only show dashboard (first) when closed
             .map((link) => {
               const isActive = pathname === link.href;
+              const Icon = link.icon;
               return (
                 <Link
                   key={link.name}
@@ -119,7 +152,7 @@ export default function Sidebar({ open: controlledOpen, setOpen: controlledSetOp
                   className={`group relative flex items-center justify-center w-9 h-9 rounded-md transition-colors
                     ${isActive ? 'bg-neutral-800 text-white font-semibold' : 'text-neutral-300 hover:bg-neutral-800 hover:text-white'}`}
                 >
-                  {link.icon}
+                  {React.createElement(Icon as any, { size: 20 })}
                   {/* Tooltip on hover */}
                   <span className="absolute left-1/2 -translate-x-1/2 top-10 whitespace-nowrap bg-neutral-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
                     {link.name}
@@ -134,35 +167,7 @@ export default function Sidebar({ open: controlledOpen, setOpen: controlledSetOp
         </div>
         {/* Page Sections Buttons */}
         <div className="flex flex-col items-center w-full mt-8 gap-2">
-          {sections.map((section) => {
-            const Icon = section.icon as React.ComponentType<{ size?: number }>;
-            return open ? (
-              <div key={section.name} className="relative flex items-center w-full" style={{ marginBottom: '4px' }}>
-                <Link
-                  href={section.href}
-                  className="flex-1 text-center py-2 rounded-md border border-neutral-700/60 text-neutral-200 hover:bg-neutral-800 transition-colors text-sm"
-                  style={{ marginRight: '36px' }}
-                >
-                  {section.name}
-                </Link>
-                <span className="absolute right-0 flex items-center text-neutral-200">
-                  <Icon size={20} />
-                </span>
-              </div>
-            ) : (
-              <Link
-                key={section.name}
-                href={section.href}
-                className="group flex items-center justify-center w-9 h-9 rounded-md border border-neutral-700/60 text-neutral-200 hover:bg-neutral-800 transition-colors text-sm relative"
-                style={{ marginBottom: '4px' }}
-              >
-                <span className="text-neutral-200"><Icon size={20} /></span>
-                <span className="absolute left-full ml-2 whitespace-nowrap bg-neutral-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
-                  {section.name}
-                </span>
-              </Link>
-            );
-          })}
+          {sections.map(renderSectionLink)}
         </div>
       </div>
       {/* Center section: Events */}
@@ -170,13 +175,56 @@ export default function Sidebar({ open: controlledOpen, setOpen: controlledSetOp
       <div className="flex flex-col items-center mb-4 gap-2">
         <ul className="w-full">
           <li>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-3 px-4 py-2 rounded-md transition-colors group text-red-600 hover:bg-red-50 font-medium w-full justify-center"
-            >
-              <FiLogOut size={20} />
-              {open && <span className="text-sm">Logout</span>}
-            </button>
+            {open ? (
+              <div className="relative flex items-center w-full mb-1 h-12">
+                <Link
+                  href="/settings"
+                  className="flex-1 w-full h-full flex items-center justify-center rounded-md border border-transparent text-neutral-200 hover:bg-neutral-800 transition-colors text-sm font-medium pl-4 pr-12"
+                >
+                  <span className="text-sm">Settings</span>
+                </Link>
+                <span className="absolute right-6 top-1/2 -translate-y-1/2 flex items-center text-neutral-200">
+                  {React.createElement(FiSettings as any, { size: 20 })}
+                </span>
+              </div>
+            ) : (
+              <Link
+                href="/settings"
+                className="group relative flex items-center justify-center w-full h-16 rounded-md border border-transparent text-neutral-200 hover:bg-neutral-800 transition-colors p-0 leading-none"
+              >
+                {React.createElement(FiSettings as any, { size: 20 })}
+                <span className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2 whitespace-nowrap bg-neutral-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-100 z-50">
+                  Settings
+                </span>
+              </Link>
+            )}
+          </li>
+          <li>
+            {open ? (
+              <div className="relative flex items-center w-full mb-1 h-12">
+                <button
+                  onClick={handleLogout}
+                  type="button"
+                  className="flex-1 w-full h-full flex items-center justify-center rounded-md border border-transparent text-red-600 hover:bg-neutral-800 transition-colors text-sm font-medium pl-4 pr-12 bg-transparent appearance-none"
+                >
+                  <span className="text-sm">Logout</span>
+                </button>
+                <span className="absolute right-6 top-1/2 -translate-y-1/2 flex items-center text-red-600">
+                  {React.createElement(FiLogOut as any, { size: 20 })}
+                </span>
+              </div>
+            ) : (
+              <button
+                onClick={handleLogout}
+                type="button"
+                className="group relative flex items-center justify-center w-full h-16 rounded-md border border-transparent text-red-600 hover:bg-neutral-800 transition-colors bg-transparent p-0 leading-none appearance-none"
+              >
+                {React.createElement(FiLogOut as any, { size: 20 })}
+                <span className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2 whitespace-nowrap bg-neutral-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-100 z-50">
+                  Logout
+                </span>
+              </button>
+            )}
           </li>
         </ul>
       </div>

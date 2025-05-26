@@ -244,9 +244,9 @@ function BudgetPageInner() {
   };
 
   return (
-    <Box sx={{ width: '100%', maxWidth: 1400, mx: 'auto', py: 6 }}>
+    <Box sx={{ width: '100%', maxWidth: 'none', mx: 0, py: 6, px: { xs: 1, sm: 3, md: 6 } }}>
       {/* Header Section */}
-      <Paper elevation={2} sx={{ p: 4, mb: 4, borderRadius: 3, bgcolor: '#fffbe6' }}>
+      <Paper elevation={2} sx={{ p: 4, mb: 4, borderRadius: 3, bgcolor: '#fffbe6', width: '100%' }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" spacing={2}>
           <Box>
             <Typography variant="h3" fontWeight={800} color="warning.main" gutterBottom>
@@ -259,17 +259,7 @@ function BudgetPageInner() {
           <Button
             variant="contained"
             startIcon={<AddIcon />}
-            sx={{
-              background: 'linear-gradient(90deg, #fde68a, #ca8a04)',
-              color: 'white',
-              fontWeight: 600,
-              borderRadius: 2,
-              px: 4,
-              py: 1.5,
-              fontSize: 18,
-              boxShadow: '0 2px 8px rgba(202, 138, 4, 0.10)',
-              '&:hover': { background: 'linear-gradient(90deg, #fbbf24, #a16207)' },
-            }}
+            sx={{ background: 'linear-gradient(90deg, #a78bfa, #7c3aed)', color: 'white', fontWeight: 600, border: 'none', borderRadius: 7, padding: '8px 18px', fontSize: 14, boxShadow: '0 2px 8px rgba(124, 58, 237, 0.10)', cursor: 'pointer', marginTop: 6, alignSelf: 'flex-end' }}
             onClick={handleAddBudget}
           >
             Add Budget Entry
@@ -278,7 +268,7 @@ function BudgetPageInner() {
       </Paper>
 
       {/* Budget Table Section */}
-      <Paper elevation={1} sx={{ p: 3, borderRadius: 3, bgcolor: '#fff' }}>
+      <Paper elevation={1} sx={{ p: 3, borderRadius: 3, bgcolor: '#fff', width: '100%' }}>
         <Typography variant="h5" fontWeight={700} color="warning.main" mb={2}>
           All Budget Entries
         </Typography>
@@ -307,6 +297,7 @@ function BudgetPageInner() {
                 '& .MuiDataGrid-row': { bgcolor: '#fff' },
                 '& .MuiDataGrid-footerContainer': { bgcolor: '#fef3c7' },
                 '& .center-cell': { textAlign: 'center', justifyContent: 'center', display: 'flex', alignItems: 'center' },
+                width: '100%',
               }}
             />
           </Box>
@@ -314,7 +305,7 @@ function BudgetPageInner() {
       </Paper>
 
       {/* Modal for Budget Details (still using mock data for now) */}
-      <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="md" fullWidth>
+      <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="xl" fullWidth>
         <DialogTitle>
           {selectedBudget ? `${selectedBudget.purchase} - Details` : 'Budget Details'}
         </DialogTitle>
@@ -339,7 +330,7 @@ function BudgetPageInner() {
                       Add Payment
                     </Button>
                   </Box>
-                  <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
+                  <TableContainer component={Paper} variant="outlined" sx={{ mb: 2, width: '100%' }}>
                     <Table size="small">
                       <TableHead>
                         <TableRow>
@@ -404,7 +395,7 @@ function BudgetPageInner() {
                       Add Item Cost
                     </Button>
                   </Box>
-                  <TableContainer component={Paper} variant="outlined">
+                  <TableContainer component={Paper} variant="outlined" sx={{ width: '100%' }}>
                     <Table size="small">
                       <TableHead>
                         <TableRow>

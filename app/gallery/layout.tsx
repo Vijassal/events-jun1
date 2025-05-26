@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function VendorsLayout({ children }: { children: React.ReactNode }) {
+export default function GalleryLayout({ children }: { children: React.ReactNode }) {
   return (
     <div
       style={{

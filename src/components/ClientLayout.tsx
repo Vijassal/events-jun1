@@ -36,7 +36,17 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     <FeatureToggleProvider>
       <div className="flex min-h-screen">
         <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} />
-        <div className={sidebarOpen ? 'ml-60 flex-1' : 'ml-16 flex-1'}>
+        <div
+          style={{
+            marginLeft: sidebarOpen ? 240 : 64, // 60*4=240px, 16*4=64px
+            transition: 'margin-left 0.3s cubic-bezier(0.4,0,0.2,1)',
+            width: `calc(100vw - ${sidebarOpen ? 240 : 64}px)`,
+            minHeight: '100vh',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
           <UserBar />
           <main style={{ height: '100vh', overflow: 'hidden' }}>
             {children}
