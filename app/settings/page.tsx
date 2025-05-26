@@ -1,5 +1,7 @@
 'use client';
 import React, { useEffect, useState } from "react";
+import { MenuItem, Select, FormControl, InputLabel } from '@mui/material';
+import { supabase } from '../../src/lib/supabase';
 
 const Toggle = ({ checked, onChange, label }: { checked: boolean, onChange: (checked: boolean) => void, label: string }) => (
   <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
@@ -42,16 +44,108 @@ export default function SettingsPage() {
   const [floorplanEnabled, setFloorplanEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [currency, setCurrency] = useState('USD');
+  const [profileId, setProfileId] = useState<string | null>(null);
+  const currencyList = [
+    { code: 'USD', name: 'US Dollar' },
+    { code: 'EUR', name: 'Euro' },
+    { code: 'GBP', name: 'British Pound' },
+    { code: 'INR', name: 'Indian Rupee' },
+    { code: 'JPY', name: 'Japanese Yen' },
+    { code: 'AUD', name: 'Australian Dollar' },
+    { code: 'CAD', name: 'Canadian Dollar' },
+    { code: 'CHF', name: 'Swiss Franc' },
+    { code: 'CNY', name: 'Chinese Yuan' },
+    { code: 'HKD', name: 'Hong Kong Dollar' },
+    { code: 'NZD', name: 'New Zealand Dollar' },
+    { code: 'SEK', name: 'Swedish Krona' },
+    { code: 'KRW', name: 'South Korean Won' },
+    { code: 'SGD', name: 'Singapore Dollar' },
+    { code: 'ZAR', name: 'South African Rand' },
+    { code: 'BRL', name: 'Brazilian Real' },
+    { code: 'MXN', name: 'Mexican Peso' },
+    { code: 'RUB', name: 'Russian Ruble' },
+    { code: 'TRY', name: 'Turkish Lira' },
+    { code: 'AED', name: 'UAE Dirham' },
+    { code: 'SAR', name: 'Saudi Riyal' },
+    { code: 'PLN', name: 'Polish Zloty' },
+    { code: 'NOK', name: 'Norwegian Krone' },
+    { code: 'DKK', name: 'Danish Krone' },
+    { code: 'THB', name: 'Thai Baht' },
+    { code: 'IDR', name: 'Indonesian Rupiah' },
+    { code: 'MYR', name: 'Malaysian Ringgit' },
+    { code: 'PHP', name: 'Philippine Peso' },
+    { code: 'VND', name: 'Vietnamese Dong' },
+    { code: 'TWD', name: 'Taiwan Dollar' },
+    { code: 'HUF', name: 'Hungarian Forint' },
+    { code: 'CZK', name: 'Czech Koruna' },
+    { code: 'ILS', name: 'Israeli Shekel' },
+    { code: 'CLP', name: 'Chilean Peso' },
+    { code: 'PKR', name: 'Pakistani Rupee' },
+    { code: 'EGP', name: 'Egyptian Pound' },
+    { code: 'NGN', name: 'Nigerian Naira' },
+    { code: 'KES', name: 'Kenyan Shilling' },
+    { code: 'GHS', name: 'Ghanaian Cedi' },
+    { code: 'COP', name: 'Colombian Peso' },
+    { code: 'ARS', name: 'Argentine Peso' },
+    { code: 'PEN', name: 'Peruvian Sol' },
+    { code: 'UAH', name: 'Ukrainian Hryvnia' },
+    { code: 'QAR', name: 'Qatari Riyal' },
+    { code: 'BHD', name: 'Bahraini Dinar' },
+    { code: 'OMR', name: 'Omani Rial' },
+    { code: 'KWD', name: 'Kuwaiti Dinar' },
+    { code: 'LKR', name: 'Sri Lankan Rupee' },
+    { code: 'BDT', name: 'Bangladeshi Taka' },
+    { code: 'MAD', name: 'Moroccan Dirham' },
+    { code: 'RON', name: 'Romanian Leu' },
+    { code: 'HRK', name: 'Croatian Kuna' },
+    { code: 'RSD', name: 'Serbian Dinar' },
+    { code: 'BGN', name: 'Bulgarian Lev' },
+    { code: 'ISK', name: 'Icelandic Krona' },
+    { code: 'GEL', name: 'Georgian Lari' },
+    { code: 'UZS', name: 'Uzbekistani Som' },
+    { code: 'KZT', name: 'Kazakhstani Tenge' },
+    { code: 'BYN', name: 'Belarusian Ruble' },
+    { code: 'AZN', name: 'Azerbaijani Manat' },
+    { code: 'AMD', name: 'Armenian Dram' },
+    { code: 'MKD', name: 'Macedonian Denar' },
+    { code: 'ALL', name: 'Albanian Lek' },
+    { code: 'BAM', name: 'Bosnia-Herzegovina Convertible Mark' },
+    { code: 'MDL', name: 'Moldovan Leu' },
+    { code: 'MNT', name: 'Mongolian Tugrik' },
+    { code: 'MOP', name: 'Macanese Pataca' },
+    { code: 'JMD', name: 'Jamaican Dollar' },
+    { code: 'XOF', name: 'West African CFA franc' },
+    { code: 'XAF', name: 'Central African CFA franc' },
+    { code: 'XCD', name: 'East Caribbean Dollar' },
+    { code: 'XPF', name: 'CFP Franc' },
+    { code: 'XUA', name: 'ADB Unit of Account' },
+    { code: 'XAG', name: 'Silver (troy ounce)' },
+    { code: 'XAU', name: 'Gold (troy ounce)' },
+    { code: 'XDR', name: 'IMF Special Drawing Rights' },
+    { code: 'XTS', name: 'Testing Currency Code' },
+    { code: 'XXX', name: 'No Currency' },
+  ];
 
   useEffect(() => {
-    setLoading(true);
-    fetch('/api/settings')
-      .then(res => res.json())
-      .then(data => {
-        setReligionEnabled(data.religion_enabled);
-        setFloorplanEnabled(data.floorplan_enabled);
-        setLoading(false);
-      });
+    // Fetch user profile and currency from Supabase
+    async function fetchProfile() {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('id, currency')
+          .eq('email', user.email)
+          .single();
+        if (profile) {
+          setProfileId(profile.id);
+          setCurrency(profile.currency || 'USD');
+        }
+      }
+      setLoading(false);
+    }
+    fetchProfile();
   }, []);
 
   const updateSettings = (newReligion: boolean, newFloorplan: boolean) => {
@@ -68,6 +162,16 @@ export default function SettingsPage() {
         setSaving(false);
         window.dispatchEvent(new Event('featureToggleChanged'));
       });
+  };
+
+  const handleCurrencyChange = async (newCurrency: string) => {
+    setCurrency(newCurrency);
+    setSaving(true);
+    if (profileId) {
+      await supabase.from('profiles').update({ currency: newCurrency }).eq('id', profileId);
+    }
+    setSaving(false);
+    window.dispatchEvent(new Event('currencyChanged'));
   };
 
   if (loading) return <div style={{ maxWidth: 600, margin: '0 auto', padding: 32 }}>Loading settings...</div>;
@@ -141,6 +245,26 @@ export default function SettingsPage() {
             label="Enable Floorplan Page"
           />
           {saving && <span style={{ color: '#7c3aed', fontSize: 14 }}>Saving...</span>}
+        </div>
+      </section>
+      <section style={{ marginBottom: 32 }}>
+        <h2 style={{ fontSize: 20, fontWeight: 600 }}>Currency</h2>
+        <FormControl fullWidth sx={{ mt: 2 }}>
+          <InputLabel id="currency-label">Currency</InputLabel>
+          <Select
+            labelId="currency-label"
+            value={currency}
+            label="Currency"
+            onChange={e => handleCurrencyChange(e.target.value)}
+          >
+            {currencyList.map(c => (
+              <MenuItem key={c.code} value={c.code}>{c.code} - {c.name}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <div style={{ marginTop: 8, color: '#6b7280', fontSize: 14 }}>
+          Selected currency: <b>{currency}</b>
+          {saving && <span style={{ color: '#7c3aed', fontSize: 14, marginLeft: 12 }}>Saving...</span>}
         </div>
       </section>
     </div>
