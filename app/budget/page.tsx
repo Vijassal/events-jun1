@@ -249,7 +249,7 @@ function BudgetPageInner() {
       <Paper elevation={2} sx={{ p: 4, mb: 4, borderRadius: 3, bgcolor: '#fffbe6', width: '100%' }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" spacing={2}>
           <Box>
-            <Typography variant="h3" fontWeight={800} color="warning.main" gutterBottom>
+            <Typography variant="h4" fontWeight={800} color="warning.main" gutterBottom>
               Budget & Expenses
             </Typography>
             <Typography variant="subtitle1" color="text.secondary">
@@ -269,7 +269,7 @@ function BudgetPageInner() {
 
       {/* Budget Table Section */}
       <Paper elevation={1} sx={{ p: 3, borderRadius: 3, bgcolor: '#fff', width: '100%' }}>
-        <Typography variant="h5" fontWeight={700} color="warning.main" mb={2}>
+        <Typography variant="h5" fontWeight={575} color="warning.main" mb={2}>
           All Budget Entries
         </Typography>
         <Divider sx={{ mb: 2 }} />

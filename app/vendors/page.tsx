@@ -33,8 +33,8 @@ export default function VendorsPage() {
 
   async function handleVendorSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!vendorForm.name || !vendorForm.date || !vendorForm.time || !vendorForm.location || !vendorForm.type || !vendorForm.category) {
-      setError('Please fill out all fields.');
+    if (!vendorForm.name || !vendorForm.date || !vendorForm.time) {
+      setError('Please fill out all required fields.');
       return;
     }
     setError('');
@@ -180,21 +180,37 @@ export default function VendorsPage() {
             <input style={inputStyle} name="time" type="time" value={vendorForm.time} onChange={handleChange} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <label style={labelStyle}>Location *</label>
+            <label style={labelStyle}>Location</label>
             <input style={inputStyle} name="location" value={vendorForm.location} onChange={handleChange} placeholder="Location" />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <label style={labelStyle}>Type *</label>
+            <label style={labelStyle}>Type</label>
             <input style={inputStyle} name="type" value={vendorForm.type} onChange={handleChange} placeholder="Type" />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <label style={labelStyle}>Category *</label>
+            <label style={labelStyle}>Category</label>
             <input style={inputStyle} name="category" value={vendorForm.category} onChange={handleChange} placeholder="Category" />
           </div>
         </div>
         {error && <div style={errorStyle}>{error}</div>}
         {success && <div style={successStyle}>{success}</div>}
-        <button style={buttonStyle} type="submit">{editingVendorId ? 'Update Vendor' : 'Add Vendor'}</button>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 6 }}>
+          <button style={buttonStyle} type="submit">{editingVendorId ? 'Update Vendor' : 'Add Vendor'}</button>
+          {editingVendorId && (
+            <button
+              type="button"
+              style={{ ...buttonStyle, background: '#f3f4f6', color: '#7c3aed', boxShadow: 'none', border: '1px solid #a78bfa' }}
+              onClick={() => {
+                setEditingVendorId(null);
+                setVendorForm({ name: '', date: '', time: '', location: '', type: '', category: '' });
+                setError('');
+                setSuccess('');
+              }}
+            >
+              Cancel
+            </button>
+          )}
+        </div>
       </form>
       <div style={{ width: '100%', overflowX: 'auto' }}>
         <table style={tableStyle}>

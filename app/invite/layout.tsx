@@ -4,8 +4,8 @@ export default function InviteLayout({ children }: { children: React.ReactNode }
   return (
     <div
       style={{
-        width: '100%',
-        height: '100vh',
+        width: 'auto',
+        height: 'auto',
         overflowY: 'auto',
         display: 'flex',
         flexDirection: 'column',

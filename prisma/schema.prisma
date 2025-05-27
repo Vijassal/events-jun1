@@ -78,3 +78,14 @@ model VerificationToken {
   expires    DateTime
   @@unique([identifier, token])
 }
+
+model Vendor {
+  id        String   @id @default(cuid())
+  name      String
+  date      DateTime
+  time      String
+  event     String
+  location  String
+  type      String
+  category  String
+}
