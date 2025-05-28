@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Button, Paper, Stack, Divider, Dialog, DialogTitle, DialogContent, Tabs, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress, Alert } from '@mui/material';
+import { Box, Typography, Button, Paper, Stack, Divider, Dialog, DialogTitle, DialogContent, Tabs, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress, Alert, LinearProgress } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { supabase } from '../../src/lib/supabase';
@@ -11,6 +11,8 @@ import { CurrencyProvider, useCurrency } from '../../src/context/CurrencyContext
 import { useFormatCurrency, useCurrencySymbol } from '../../src/lib/currency';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 function BudgetPageInner() {
   const [budgets, setBudgets] = useState<any[]>([]);
@@ -32,8 +34,6 @@ function BudgetPageInner() {
   const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
   const formatCurrency = useFormatCurrency();
   const currencySymbol = useCurrencySymbol();
-
-  // State for column persistence
   const [columnState, setColumnState] = useState<any>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('budgetColumnState');
@@ -41,37 +41,287 @@ function BudgetPageInner() {
     }
     return undefined;
   });
+  // Inline editing state
+  const [inlineEditRowId, setInlineEditRowId] = useState<string | null>(null);
+  const [inlineEditRow, setInlineEditRow] = useState<any | null>(null);
+  const [inlineEditLoading, setInlineEditLoading] = useState(false);
+  // Add inline form state for new budget
+  const initialInlineForm = {
+    purchase: '',
+    vendor_id: '',
+    date: '',
+    event_id: '',
+    sub_event_id: '',
+    category: '',
+    cost: '',
+    currency: 'USD',
+    conversion_rate: 1,
+    converted_amount: '',
+    tags: [] as string[],
+    payment_for: '',
+    payment_by: '',
+  };
+  const [inlineForm, setInlineForm] = useState(initialInlineForm);
+  const [inlineTagInput, setInlineTagInput] = useState('');
+  const [inlineFormError, setInlineFormError] = useState<string | null>(null);
+  const [inlineFormSuccess, setInlineFormSuccess] = useState<string | null>(null);
+  const [inlineFormLoading, setInlineFormLoading] = useState(false);
+  const [inlineConversionLoading, setInlineConversionLoading] = useState(false);
+  const [vendors, setVendors] = useState<{ id: string, name: string }[]>([]);
+  const [events, setEvents] = useState<{ id: string, name: string }[]>([]);
+  const [subEvents, setSubEvents] = useState<{ id: string, name: string, parentEventId: string }[]>([]);
+  const [userCurrency, setUserCurrency] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('selectedCurrency') || 'USD';
+    }
+    return 'USD';
+  });
 
+  // Top 25 currencies (ISO codes)
+  const topCurrencies = [
+    'USD', 'EUR', 'GBP', 'JPY', 'AUD', 'CAD', 'CHF', 'CNY', 'HKD', 'NZD',
+    'SEK', 'KRW', 'SGD', 'NOK', 'MXN', 'INR', 'RUB', 'ZAR', 'TRY', 'BRL',
+    'TWD', 'DKK', 'PLN', 'THB', 'IDR'
+  ];
+  const baseCurrency = 'USD';
+
+  // Use Supabase for daily exchange rates
+  const fetchConversionRate = async (from: string, to: string) => {
+    setInlineConversionLoading(true);
+    let rate = 1;
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    if (from === to) {
+      rate = 1;
+    } else {
+      // 1. Try to get from Supabase
+      const { data, error } = await supabase
+        .from('exchange_rates')
+        .select('rate')
+        .eq('from_currency', from)
+        .eq('to_currency', to)
+        .eq('date', today)
+        .single();
+      if (data && data.rate) {
+        rate = data.rate;
+      } else {
+        // 2. Fetch from API
+        try {
+          const res = await fetch(`https://api.exchangerate.host/convert?from=${from}&to=${to}`);
+          const apiData = await res.json();
+          if (apiData && apiData.info && apiData.info.rate) {
+            rate = apiData.info.rate;
+          } else if (apiData && apiData.result) {
+            rate = apiData.result;
+          }
+          // 3. Upsert into Supabase (update if exists, insert if not)
+          await supabase.from('exchange_rates').upsert([
+            { from_currency: from, to_currency: to, rate, date: today }
+          ], { onConflict: 'from_currency,to_currency,date' });
+        } catch (e) {
+          rate = 1;
+        }
+      }
+    }
+    setInlineForm(f => ({
+      ...f,
+      conversion_rate: rate,
+      converted_amount: f.cost ? (parseFloat(f.cost) * rate).toFixed(2) : '',
+    }));
+    setInlineConversionLoading(false);
+  };
+
+  // Only auto-fetch for new entry (not editing)
+  useEffect(() => {
+    // Only auto-fetch for new entry (not editing)
+    if (
+      !inlineEditRowId &&
+      inlineForm.currency &&
+      userCurrency &&
+      inlineForm.currency !== userCurrency &&
+      inlineForm.cost
+    ) {
+      fetchConversionRate(inlineForm.currency, userCurrency);
+    } else if (!inlineEditRowId && inlineForm.currency === userCurrency && inlineForm.cost) {
+      setInlineForm(f => ({ ...f, conversion_rate: 1, converted_amount: f.cost }));
+    }
+    // eslint-disable-next-line
+  }, [inlineForm.currency, inlineForm.cost, userCurrency, inlineEditRowId]);
+
+  // Fetch user currency from profile
+  useEffect(() => {
+    async function fetchUserCurrency() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('currency')
+          .eq('email', user.email)
+          .single();
+        if (profile && profile.currency) setUserCurrency(profile.currency);
+      }
+    }
+    fetchUserCurrency();
+    // Listen for currency changes from Settings
+    const handler = () => fetchUserCurrency();
+    window.addEventListener('currencyChanged', handler);
+    return () => window.removeEventListener('currencyChanged', handler);
+  }, []);
+
+  // Budget columns for DataGrid
   const budgetColumns: GridColDef[] = [
-    { field: 'purchase', headerName: 'Purchase', flex: 1, minWidth: 140, headerClassName: 'center-header' },
-    { field: 'vendor_id', headerName: 'Vendor', flex: 1, minWidth: 120, headerClassName: 'center-header' },
-    { field: 'date', headerName: 'Date', flex: 1, minWidth: 110, headerClassName: 'center-header' },
-    { field: 'event_id', headerName: 'Event/Sub-Event', flex: 1, minWidth: 150, headerClassName: 'center-header' },
-    { field: 'category', headerName: 'Category', flex: 1, minWidth: 110, headerClassName: 'center-header' },
-    { field: 'cost', headerName: `Cost (${currencySymbol})`, flex: 1, minWidth: 100, type: 'number',
-      valueFormatter: ({ value }) => value,
+    { field: 'purchase', headerName: 'Purchase', flex: 1, minWidth: 140, headerClassName: 'center-header', cellClassName: 'center-cell', editable: true },
+    { field: 'vendor_id', headerName: 'Vendor', flex: 1, minWidth: 120, headerClassName: 'center-header', cellClassName: 'center-cell', editable: true, 
+      renderCell: (params: GridRenderCellParams) => {
+        const vendor = vendors.find(v => v.id === params.value);
+        return vendor ? vendor.name : '';
+      },
+    },
+    { field: 'date', headerName: 'Date', flex: 1, minWidth: 110, headerClassName: 'center-header', cellClassName: 'center-cell', editable: true },
+    {
+      field: 'event_id',
+      headerName: 'Event',
+      flex: 1,
+      minWidth: 150,
+      headerClassName: 'center-header',
+      cellClassName: 'center-cell',
+      editable: true,
+      renderCell: (params: GridRenderCellParams) => {
+        const event = events.find(ev => ev.id === params.value);
+        return event ? event.name : '';
+      },
+    },
+    {
+      field: 'sub_event_id',
+      headerName: 'Sub-Event',
+      flex: 1,
+      minWidth: 150,
+      headerClassName: 'center-header',
+      cellClassName: 'center-cell',
+      editable: true,
+      renderCell: (params: GridRenderCellParams) => {
+        const subEvent = subEvents.find(se => se.id === params.value);
+        return subEvent ? subEvent.name : '';
+      },
+    },
+    { field: 'category', headerName: 'Category', flex: 1, minWidth: 110, headerClassName: 'center-header', cellClassName: 'center-cell', editable: true },
+    {
+      field: 'converted_amount',
+      headerName: `Converted Amount`,
+      flex: 1,
+      minWidth: 140,
+      type: 'number',
+      editable: false,
       cellClassName: 'center-cell',
       headerClassName: 'center-header',
+      renderCell: (params: GridRenderCellParams) => {
+        const value = params.row.converted_amount;
+        return value && !isNaN(Number(value)) ? Number(value).toFixed(2) : '0.00';
+      },
     },
-    { field: 'tags', headerName: 'Tags', flex: 1, minWidth: 120, valueFormatter: ({ value }) => Array.isArray(value) ? (value as any[]).join(', ') : (value ?? ''), cellClassName: 'center-cell', headerClassName: 'center-header' },
-    { field: 'payment_for', headerName: 'Payment For', flex: 1, minWidth: 120, cellClassName: 'center-cell', headerClassName: 'center-header' },
-    { field: 'payment_by', headerName: 'Payment By', flex: 1, minWidth: 120, cellClassName: 'center-cell', headerClassName: 'center-header' },
+    { field: 'tags', headerName: 'Tags', flex: 1, minWidth: 120, editable: true, valueFormatter: ({ value }) => Array.isArray(value) ? (value as any[]).join(', ') : (value ?? ''), cellClassName: 'center-cell', headerClassName: 'center-header' },
+    { field: 'payment_for', headerName: 'Payment For', flex: 1, minWidth: 120, cellClassName: 'center-cell', headerClassName: 'center-header', editable: true },
+    { field: 'payment_by', headerName: 'Payment By', flex: 1, minWidth: 120, cellClassName: 'center-cell', headerClassName: 'center-header', editable: true },
     {
       field: 'actions',
       headerName: 'Actions',
-      flex: 1,
-      minWidth: 120,
+      minWidth: 340,
+      maxWidth: 360,
       sortable: false,
       filterable: false,
-      renderCell: (params: GridRenderCellParams) => (
-        <Button variant="outlined" size="small" color="warning" onClick={() => params.api.getRow(params.id).openModal(params.id)}>
-          View Details
-        </Button>
-      ),
       cellClassName: 'center-cell',
       headerClassName: 'center-header',
+      renderCell: (params: GridRenderCellParams) => {
+        const isEditing = inlineEditRowId === params.row.id;
+        return (
+          <Stack direction="row" spacing={0.5}>
+            {isEditing ? (
+              <Button
+                variant="contained"
+                color="success"
+                size="small"
+                disabled={inlineEditLoading}
+                onClick={async () => {
+                  setInlineEditLoading(true);
+                  const { error } = await supabase.from('budgets').update(inlineEditRow).eq('id', params.row.id);
+                  if (!error) {
+                    setInlineEditRowId(null);
+                    setInlineEditRow(null);
+                    fetchBudgets();
+                  } else {
+                    setError('Failed to update budget.');
+                  }
+                  setInlineEditLoading(false);
+                }}
+                sx={{ fontWeight: 600, textTransform: 'none', fontSize: 12, px: 1.5 }}
+              >
+                Save
+              </Button>
+            ) : (
+              <Button
+                variant="outlined"
+                color="primary"
+                size="small"
+                startIcon={<EditIcon />}
+                onClick={() => {
+                  setInlineEditRowId(params.row.id);
+                  setInlineEditRow(params.row);
+                }}
+                sx={{ fontWeight: 600, textTransform: 'none', fontSize: 12, px: 1.5 }}
+              >
+                Edit
+              </Button>
+            )}
+            <Button
+              variant="outlined"
+              color="error"
+              size="small"
+              startIcon={<DeleteIcon />}
+              onClick={async () => {
+                const { error } = await supabase.from('budgets').delete().eq('id', params.row.id);
+                if (!error) {
+                  fetchBudgets();
+                } else {
+                  setError('Failed to delete budget.');
+                }
+              }}
+              sx={{ fontWeight: 600, textTransform: 'none', fontSize: 12, px: 1.5 }}
+            >
+              Delete
+            </Button>
+            <Button
+              variant="outlined"
+              color="secondary"
+              size="small"
+              onClick={() => handleViewDetails(params.row.id)}
+              sx={{ fontWeight: 600, textTransform: 'none', fontSize: 12, px: 1.5 }}
+            >
+              View Details
+            </Button>
+          </Stack>
+        );
+      },
     },
   ];
+
+  // Patch DataGrid columns to always apply headerClassName
+  const columnsWithHandler = budgetColumns.map((col) => ({
+    ...col,
+    headerClassName: col.headerClassName || 'center-header',
+    editable: col.field !== 'actions',
+  }));
+
+  // Only allow editing for the selected row
+  const isCellEditable = (params: any) => {
+    return inlineEditRowId === params.row.id && params.field !== 'actions';
+  };
+
+  // Track changes to the inline edit row
+  const handleInlineEditChange = (params: any) => {
+    if (inlineEditRowId === params.id) {
+      setInlineEditRow((prev: any) => ({ ...prev, [params.field]: params.value }));
+    }
+    return params.value;
+  };
 
   // Refactor fetchModalData to be callable
   const fetchModalData = async (budgetId: string) => {
@@ -133,6 +383,24 @@ function BudgetPageInner() {
   };
   useEffect(() => {
     fetchBudgets();
+    // Fetch vendors for dropdown
+    const fetchVendors = async () => {
+      const { data, error } = await supabase.from('vendors').select('id, name').order('name');
+      if (!error && data) setVendors(data);
+    };
+    fetchVendors();
+    // Fetch events for dropdown
+    const fetchEvents = async () => {
+      const { data, error } = await supabase.from('events').select('id, name').order('name');
+      if (!error && data) setEvents(data);
+    };
+    fetchEvents();
+    // Fetch sub-events for dropdown
+    const fetchSubEvents = async () => {
+      const { data, error } = await supabase.from('sub_events').select('id, name, parent_event_id').order('name');
+      if (!error && data) setSubEvents(data.map(se => ({ ...se, parentEventId: se.parent_event_id })));
+    };
+    fetchSubEvents();
   }, []);
 
   useEffect(() => {
@@ -208,24 +476,6 @@ function BudgetPageInner() {
     }
   };
 
-  // Patch DataGrid columns to inject handler and always apply headerClassName
-  const columnsWithHandler = budgetColumns.map((col) => ({
-    ...col,
-    headerClassName: col.headerClassName || 'center-header',
-    ...(col.field === 'actions' && {
-      renderCell: (params: GridRenderCellParams) => (
-        <>
-          <Button variant="outlined" size="small" color="warning" onClick={() => handleViewDetails(params.row.id)} sx={{ mr: 1 }}>
-            View Details
-          </Button>
-          <Button variant="outlined" size="small" color="primary" onClick={() => handleEditBudget(params.row)}>
-            Edit
-          </Button>
-        </>
-      ),
-    }),
-  }));
-
   // Handlers to persist column changes
   const handleColumnOrderChange = (params: any) => {
     const newState = { ...columnState, order: params.columnOrder };
@@ -243,44 +493,218 @@ function BudgetPageInner() {
     localStorage.setItem('budgetColumnState', JSON.stringify(newState));
   };
 
-  return (
-    <Box sx={{ width: '100%', maxWidth: 'none', mx: 0, py: 6, px: { xs: 1, sm: 3, md: 6 } }}>
-      {/* Header Section */}
-      <Paper elevation={2} sx={{ p: 4, mb: 4, borderRadius: 3, bgcolor: '#fffbe6', width: '100%' }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" spacing={2}>
-          <Box>
-            <Typography variant="h4" fontWeight={800} color="warning.main" gutterBottom>
-              Budget & Expenses
-            </Typography>
-            <Typography variant="subtitle1" color="text.secondary">
-              Track your event costs, payments, and itemized expenses in one place.
-            </Typography>
-          </Box>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            sx={{ background: 'linear-gradient(90deg, #a78bfa, #7c3aed)', color: 'white', fontWeight: 600, border: 'none', borderRadius: 7, padding: '8px 18px', fontSize: 14, boxShadow: '0 2px 8px rgba(124, 58, 237, 0.10)', cursor: 'pointer', marginTop: 6, alignSelf: 'flex-end' }}
-            onClick={handleAddBudget}
-          >
-            Add Budget Entry
-          </Button>
-        </Stack>
-      </Paper>
+  const handleInlineFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setInlineForm({ ...inlineForm, [name]: value });
+  };
+  const handleInlineAddTag = () => {
+    if (inlineTagInput.trim() && !inlineForm.tags.includes(inlineTagInput.trim())) {
+      setInlineForm({ ...inlineForm, tags: [...inlineForm.tags, inlineTagInput.trim()] });
+    }
+    setInlineTagInput('');
+  };
+  const handleInlineDeleteTag = (tag: string) => {
+    setInlineForm({ ...inlineForm, tags: inlineForm.tags.filter((t: string) => t !== tag) });
+  };
+  const cleanUUID = (value: string) => value === "" ? null : value;
+  const handleInlineFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setInlineFormLoading(true);
+    setInlineFormError(null);
+    setInlineFormSuccess(null);
+    if (!inlineForm.purchase || !inlineForm.date || !inlineForm.category || !inlineForm.cost) {
+      setInlineFormError('Please fill in all required fields.');
+      setInlineFormLoading(false);
+      return;
+    }
+    const data = {
+      purchase: inlineForm.purchase,
+      vendor_id: cleanUUID(inlineForm.vendor_id),
+      date: inlineForm.date,
+      event_id: cleanUUID(inlineForm.event_id),
+      sub_event_id: cleanUUID(inlineForm.sub_event_id),
+      category: inlineForm.category,
+      cost: Number(inlineForm.cost),
+      converted_amount: inlineForm.converted_amount && !isNaN(Number(inlineForm.converted_amount)) ? Number(inlineForm.converted_amount) : 0,
+      tags: inlineForm.tags,
+      payment_for: inlineForm.payment_for,
+      payment_by: inlineForm.payment_by
+    };
+    const { error } = await supabase.from('budgets').insert([data]);
+    if (error) {
+      setInlineFormError(error.message);
+    } else {
+      setInlineFormSuccess('Budget added!');
+      setInlineForm(initialInlineForm);
+      setInlineTagInput('');
+      fetchBudgets();
+    }
+    setInlineFormLoading(false);
+  };
 
-      {/* Budget Table Section */}
-      <Paper elevation={1} sx={{ p: 3, borderRadius: 3, bgcolor: '#fff', width: '100%' }}>
-        <Typography variant="h5" fontWeight={575} color="warning.main" mb={2}>
-          All Budget Entries
-        </Typography>
-        <Divider sx={{ mb: 2 }} />
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-            <CircularProgress color="warning" />
-          </Box>
-        ) : error ? (
-          <Alert severity="error">{error}</Alert>
-        ) : (
-          <Box sx={{ height: 420, width: '100%' }}>
+  return (
+    <div style={{
+      width: '100%',
+      maxWidth: 'none',
+      margin: 0,
+      marginTop: 32,
+      marginBottom: 32,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 32,
+      paddingLeft: 32,
+      paddingRight: 32,
+      boxSizing: 'border-box',
+    }}>
+      <h2 style={{ fontSize: 22, fontWeight: 700, color: '#7c3aed', marginBottom: 8, letterSpacing: 0.2 }}>Budget & Expenses</h2>
+      {/* Inline Add Budget Form */}
+      <form
+        style={{
+          background: '#fff',
+          borderRadius: 12,
+          boxShadow: '0 2px 12px rgba(124, 58, 237, 0.06)',
+          padding: 24,
+          marginBottom: 0,
+          width: '100%',
+          maxWidth: 'none',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+        }}
+        onSubmit={handleInlineFormSubmit}
+        id="budget-inline-form"
+      >
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(11, 1fr)',
+          gap: 12,
+          alignItems: 'end',
+          width: '100%',
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+            <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Purchase *</label>
+            <input style={{ height: 38, padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', marginBottom: 4, background: '#fff', color: '#222' }} name="purchase" value={inlineForm.purchase} onChange={handleInlineFormChange} placeholder="Purchase" />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+            <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Vendor *</label>
+            <select
+              name="vendor_id"
+              value={inlineForm.vendor_id}
+              onChange={e => setInlineForm({ ...inlineForm, vendor_id: e.target.value })}
+              style={{ height: 38, padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', marginBottom: 4, background: '#fff', color: '#222' }}
+              required
+            >
+              <option value="">Select Vendor</option>
+              {vendors.map(vendor => (
+                <option key={vendor.id} value={vendor.id}>{vendor.name}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+            <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Date *</label>
+            <input style={{ height: 38, padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', marginBottom: 4, background: '#fff', color: '#222' }} name="date" type="date" value={inlineForm.date} onChange={handleInlineFormChange} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+            <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Event *</label>
+            <select
+              name="event_id"
+              value={inlineForm.event_id}
+              onChange={e => setInlineForm({ ...inlineForm, event_id: e.target.value, sub_event_id: '' })}
+              style={{ height: 38, padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', marginBottom: 4, background: '#fff', color: '#222' }}
+              required
+            >
+              <option value="">Select Event</option>
+              {events.map(event => (
+                <option key={event.id} value={event.id}>{event.name}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+            <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Sub-Event</label>
+            <select
+              name="sub_event_id"
+              value={inlineForm.sub_event_id || ''}
+              onChange={e => setInlineForm({ ...inlineForm, sub_event_id: e.target.value })}
+              style={{ height: 38, padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', marginBottom: 4, background: '#fff', color: '#222' }}
+            >
+              <option value="">Select Sub-Event</option>
+              {subEvents.filter(se => se.parentEventId === inlineForm.event_id).map(se => (
+                <option key={se.id} value={se.id}>{se.name}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+            <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Category *</label>
+            <input style={{ height: 38, padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', marginBottom: 4, background: '#fff', color: '#222' }} name="category" value={inlineForm.category} onChange={handleInlineFormChange} placeholder="Category" />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+            <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Cost *</label>
+            <input style={{ height: 38, padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', marginBottom: 4, background: '#fff', color: '#222' }} name="cost" value={inlineForm.cost} onChange={handleInlineFormChange} placeholder="Cost" type="number" min={0} step="0.01" />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+            <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Currency *</label>
+            <select
+              name="currency"
+              value={inlineForm.currency}
+              onChange={e => setInlineForm({ ...inlineForm, currency: e.target.value })}
+              style={{ height: 38, lineHeight: '38px', padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', marginBottom: 0, background: '#fff', color: '#222', verticalAlign: 'middle' }}
+              required
+            >
+              {topCurrencies.map(cur => (
+                <option key={cur} value={cur}>{cur}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+            <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Conversion Rate ({inlineForm.currency} → {userCurrency})</label>
+            <input
+              name="conversion_rate"
+              type="number"
+              step="0.0001"
+              value={inlineForm.conversion_rate}
+              onChange={e => setInlineForm({
+                ...inlineForm,
+                conversion_rate: parseFloat(e.target.value) || 1,
+                converted_amount: inlineForm.cost ? (parseFloat(inlineForm.cost) * (parseFloat(e.target.value) || 1)).toFixed(2) : ''
+              })}
+              style={{ height: 38, lineHeight: '38px', padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', background: '#f3f4f6', color: '#222', width: 120, marginRight: 6, fontWeight: 600, marginBottom: 0 }}
+              disabled={inlineConversionLoading}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+            <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Converted Amount ({userCurrency})</label>
+            <input
+              name="converted_amount"
+              type="number"
+              value={inlineForm.converted_amount}
+              onChange={e => setInlineForm({ ...inlineForm, converted_amount: e.target.value })}
+              style={{ height: 38, lineHeight: '38px', padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', background: '#fff', color: '#222', marginBottom: 0 }}
+            />
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 6 }}>
+          <button
+            style={{ background: 'linear-gradient(90deg, #a78bfa, #7c3aed)', color: 'white', fontWeight: 600, border: 'none', borderRadius: 7, padding: '8px 18px', fontSize: 14, boxShadow: '0 2px 8px rgba(124, 58, 237, 0.10)', cursor: 'pointer', marginTop: 6, alignSelf: 'flex-end' }}
+            type="submit"
+            disabled={inlineFormLoading}
+          >
+            Add Budget
+          </button>
+          {inlineFormError && <span style={{ color: '#ef4444', fontWeight: 500, fontSize: 13 }}>{inlineFormError}</span>}
+          {inlineFormSuccess && <span style={{ color: '#22c55e', fontWeight: 500, fontSize: 13 }}>{inlineFormSuccess}</span>}
+        </div>
+      </form>
+      {/* Modal BudgetForm for editing only */}
+      <BudgetForm open={formOpen} onClose={() => setFormOpen(false)} onSuccess={handleFormSuccess} initialData={editData} vendors={vendors} />
+      <div style={{ width: '100%', overflowX: 'auto', marginTop: 32 }}>
+        <Paper elevation={1} sx={{ p: 3, borderRadius: 3, bgcolor: '#fff', width: '100%' }}>
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+              <CircularProgress color="secondary" />
+            </Box>
+          ) : error ? (
+            <Alert severity="error">{error}</Alert>
+          ) : (
             <DataGrid
               rows={budgets}
               columns={columnsWithHandler}
@@ -290,33 +714,92 @@ function BudgetPageInner() {
               onColumnOrderChange={handleColumnOrderChange}
               onColumnVisibilityModelChange={handleColumnVisibilityModelChange}
               onColumnWidthChange={handleColumnWidthChange}
+              isCellEditable={isCellEditable}
+              processRowUpdate={handleInlineEditChange}
               sx={{
                 border: 'none',
                 fontSize: 16,
-                '& .MuiDataGrid-columnHeaders': { bgcolor: '#fef3c7', color: '#a16207', fontWeight: 700 },
+                '& .MuiDataGrid-columnHeaders': { bgcolor: '#ede9fe', color: '#7c3aed', fontWeight: 700 },
                 '& .MuiDataGrid-row': { bgcolor: '#fff' },
-                '& .MuiDataGrid-footerContainer': { bgcolor: '#fef3c7' },
+                '& .MuiDataGrid-row.Mui-selected, & .MuiDataGrid-row[data-rowindex][data-id].Mui-selected': { bgcolor: '#f3e8ff !important' },
+                '& .MuiDataGrid-row.editing-row': { bgcolor: '#f3e8ff !important' },
+                '& .MuiDataGrid-footerContainer': { bgcolor: '#ede9fe' },
                 '& .center-cell': { textAlign: 'center', justifyContent: 'center', display: 'flex', alignItems: 'center' },
                 width: '100%',
               }}
+              getRowClassName={(params) => (inlineEditRowId === params.id ? 'editing-row' : '')}
             />
-          </Box>
-        )}
-      </Paper>
-
-      {/* Modal for Budget Details (still using mock data for now) */}
+          )}
+        </Paper>
+      </div>
+      {/* Modal for Budget Details (payments/items) remains unchanged */}
       <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="xl" fullWidth>
         <DialogTitle>
-          {selectedBudget ? `${selectedBudget.purchase} - Details` : 'Budget Details'}
+          {selectedBudget ? <span style={{ color: '#7c3aed' }}>{`${selectedBudget.purchase} - Details`}</span> : <span style={{ color: '#7c3aed' }}>Budget Details</span>}
         </DialogTitle>
         <DialogContent>
+          {/* --- Summary Indicators --- */}
+          {selectedBudget && (
+            <Box sx={{
+              display: 'flex',
+              flexDirection: { xs: 'column', sm: 'row' },
+              alignItems: { xs: 'flex-start', sm: 'center' },
+              gap: 3,
+              mb: 3,
+              p: 2,
+              bgcolor: '#f3e8ff',
+              borderRadius: 2,
+              boxShadow: '0 2px 8px rgba(124, 58, 237, 0.06)',
+            }}>
+              <Box>
+                <Typography variant="subtitle2" sx={{ color: '#7c3aed', fontWeight: 700, fontSize: 15 }}>Total Budgeted</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 700, color: '#4b5563', fontSize: 18 }}>
+                  {formatCurrency(selectedBudget.converted_amount || selectedBudget.cost)}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="subtitle2" sx={{ color: '#7c3aed', fontWeight: 700, fontSize: 15 }}>Total Paid</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 700, color: '#22c55e', fontSize: 18 }}>
+                  {formatCurrency(paymentLogs.reduce((sum, p) => sum + (Number(p.payment_amount) || 0), 0))}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="subtitle2" sx={{ color: '#7c3aed', fontWeight: 700, fontSize: 15 }}>Remaining</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 700, color: '#ef4444', fontSize: 18 }}>
+                  {formatCurrency((Number(selectedBudget.converted_amount || selectedBudget.cost) || 0) - paymentLogs.reduce((sum, p) => sum + (Number(p.payment_amount) || 0), 0))}
+                </Typography>
+              </Box>
+              <Box sx={{ flex: 1, minWidth: 180 }}>
+                <Typography variant="subtitle2" sx={{ color: '#7c3aed', fontWeight: 700, fontSize: 15, mb: 0.5 }}>Progress</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ flex: 1 }}>
+                    <LinearProgress
+                      variant="determinate"
+                      value={
+                        ((paymentLogs.reduce((sum, p) => sum + (Number(p.payment_amount) || 0), 0)) /
+                          (Number(selectedBudget.converted_amount || selectedBudget.cost) || 1)) * 100
+                      }
+                      sx={{ height: 10, borderRadius: 5, bgcolor: '#ede9fe', '& .MuiLinearProgress-bar': { bgcolor: '#7c3aed' } }}
+                    />
+                  </Box>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#7c3aed', minWidth: 40 }}>
+                    {Math.round(
+                      ((paymentLogs.reduce((sum, p) => sum + (Number(p.payment_amount) || 0), 0)) /
+                        (Number(selectedBudget.converted_amount || selectedBudget.cost) || 1)) * 100
+                    )}%
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+          )}
+          {/* --- End Summary Indicators --- */}
           <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
-            <Tab label="Payments" />
-            <Tab label="Item Costs" />
+            <Tab label={<span style={{ color: '#7c3aed' }}>Payments</span>} />
+            <Tab label={<span style={{ color: '#7c3aed' }}>Item Costs</span>} />
           </Tabs>
           {modalLoading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-              <CircularProgress color="warning" />
+              <CircularProgress color="secondary" />
             </Box>
           ) : modalError ? (
             <Alert severity="error">{modalError}</Alert>
@@ -326,7 +809,11 @@ function BudgetPageInner() {
               {tab === 0 && selectedBudget && (
                 <>
                   <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
-                    <Button variant="contained" color="warning" onClick={handleAddPayment}>
+                    <Button
+                      variant="contained"
+                      sx={{ background: 'linear-gradient(90deg, #a78bfa, #7c3aed)', color: 'white', fontWeight: 600, border: 'none', borderRadius: 7, padding: '8px 18px', fontSize: 14, boxShadow: '0 2px 8px rgba(124, 58, 237, 0.10)', cursor: 'pointer', marginTop: 6, alignSelf: 'flex-end' }}
+                      onClick={handleAddPayment}
+                    >
                       Add Payment
                     </Button>
                   </Box>
@@ -358,7 +845,12 @@ function BudgetPageInner() {
                               <TableCell>{log.payment_date}</TableCell>
                               <TableCell>{log.item}</TableCell>
                               <TableCell>
-                                <Button variant="outlined" size="small" color="primary" onClick={() => handleEditPayment(log)}>
+                                <Button
+                                  variant="outlined"
+                                  size="small"
+                                  sx={{ color: '#7c3aed', borderColor: '#a78bfa', fontWeight: 600, textTransform: 'none' }}
+                                  onClick={() => handleEditPayment(log)}
+                                >
                                   Edit
                                 </Button>
                               </TableCell>
@@ -383,9 +875,8 @@ function BudgetPageInner() {
                   <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
                     <Button
                       variant="contained"
-                      color="warning"
+                      sx={{ background: 'linear-gradient(90deg, #a78bfa, #7c3aed)', color: 'white', fontWeight: 600, border: 'none', borderRadius: 7, padding: '8px 18px', fontSize: 14, boxShadow: '0 2px 8px rgba(124, 58, 237, 0.10)', cursor: 'pointer', marginTop: 6, alignSelf: 'flex-end' }}
                       onClick={() => {
-                        // If there are payments, default to first payment; else, disable
                         if (paymentLogs.length > 0) {
                           handleAddItemCost(paymentLogs[0].id);
                         }
@@ -423,7 +914,12 @@ function BudgetPageInner() {
                               <TableCell>{formatCurrency(cost.total)}</TableCell>
                               <TableCell>{cost.logged_payment_id}</TableCell>
                               <TableCell>
-                                <Button variant="outlined" size="small" color="primary" onClick={() => handleEditItemCost(cost)}>
+                                <Button
+                                  variant="outlined"
+                                  size="small"
+                                  sx={{ color: '#7c3aed', borderColor: '#a78bfa', fontWeight: 600, textTransform: 'none' }}
+                                  onClick={() => handleEditItemCost(cost)}
+                                >
                                   Edit
                                 </Button>
                               </TableCell>
@@ -446,8 +942,7 @@ function BudgetPageInner() {
           )}
         </DialogContent>
       </Dialog>
-      <BudgetForm open={formOpen} onClose={() => setFormOpen(false)} onSuccess={handleFormSuccess} initialData={editData} />
-    </Box>
+    </div>
   );
 }
 

@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from 'react';
-import { Box, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Stack, Chip, Alert } from '@mui/material';
+import { Box, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Stack, Chip, Alert, MenuItem } from '@mui/material';
 import { supabase } from '../../src/lib/supabase';
 
 const initialForm = {
@@ -15,11 +15,12 @@ const initialForm = {
   payment_by: '',
 };
 
-export default function BudgetForm({ open, onClose, onSuccess, initialData }: {
+export default function BudgetForm({ open, onClose, onSuccess, initialData, vendors = [] }: {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
   initialData?: any;
+  vendors?: { id: string, name: string }[];
 }) {
   const [form, setForm] = useState(initialData ? { ...initialForm, ...initialData } : initialForm);
   const [tagInput, setTagInput] = useState('');
@@ -75,11 +76,24 @@ export default function BudgetForm({ open, onClose, onSuccess, initialData }: {
         <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
           <Stack spacing={2}>
             <TextField label="Purchase" name="purchase" value={form.purchase} onChange={handleChange} required fullWidth />
-            <TextField label="Vendor ID" name="vendor_id" value={form.vendor_id} onChange={handleChange} fullWidth />
+            <TextField
+              select
+              label="Vendor"
+              name="vendor_id"
+              value={form.vendor_id}
+              onChange={handleChange}
+              required
+              fullWidth
+            >
+              <MenuItem value="">Select Vendor</MenuItem>
+              {vendors.map(vendor => (
+                <MenuItem key={vendor.id} value={vendor.id}>{vendor.name}</MenuItem>
+              ))}
+            </TextField>
             <TextField label="Date" name="date" type="date" value={form.date} onChange={handleChange} required fullWidth InputLabelProps={{ shrink: true }} />
             <TextField label="Event ID" name="event_id" value={form.event_id} onChange={handleChange} fullWidth />
             <TextField label="Category" name="category" value={form.category} onChange={handleChange} required fullWidth />
-            <TextField label="Cost" name="cost" value={form.cost} onChange={handleChange} required fullWidth type="number" inputProps={{ min: 0 }} />
+            <TextField label="Cost" name="cost" value={form.cost} onChange={handleChange} required fullWidth type="number" inputProps={{ min: 0, step: '0.01' }} />
             <Box>
               <TextField label="Add Tag" value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddTag(); } }} size="small" sx={{ mr: 1, width: 180 }} />
               <Button onClick={handleAddTag} size="small" variant="outlined">Add</Button>

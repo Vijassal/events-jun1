@@ -60,9 +60,9 @@ export default function ItemCostForm({ open, onClose, onSuccess, initialData, pa
           <Stack spacing={2}>
             <TextField label="Payment ID" name="logged_payment_id" value={paymentId} disabled fullWidth />
             <TextField label="Item" name="item" value={form.item} onChange={handleChange} required fullWidth />
-            <TextField label="Per Cost" name="per_cost" value={form.per_cost} onChange={handleChange} required fullWidth type="number" inputProps={{ min: 0 }} />
-            <TextField label="Subtotal" name="subtotal" value={form.subtotal} onChange={handleChange} required fullWidth type="number" inputProps={{ min: 0 }} />
-            <TextField label="Total" name="total" value={form.total} onChange={handleChange} required fullWidth type="number" inputProps={{ min: 0 }} />
+            <TextField label="Per Cost" name="per_cost" value={form.per_cost} onChange={handleChange} required fullWidth type="number" inputProps={{ min: 0, step: '0.01' }} />
+            <TextField label="Subtotal" name="subtotal" value={form.subtotal} onChange={handleChange} required fullWidth type="number" inputProps={{ min: 0, step: '0.01' }} />
+            <TextField label="Total" name="total" value={form.total} onChange={handleChange} required fullWidth type="number" inputProps={{ min: 0, step: '0.01' }} />
             {error && <Alert severity="error">{error}</Alert>}
           </Stack>
         </Box>
