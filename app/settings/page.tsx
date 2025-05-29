@@ -1,6 +1,6 @@
 'use client';
 import React, { useEffect, useState } from "react";
-import { MenuItem, Select, FormControl, InputLabel } from '@mui/material';
+import { MenuItem, Select, FormControl, InputLabel, Tabs, Tab, Box } from '@mui/material';
 import { supabase } from '../../src/lib/supabase';
 
 const Toggle = ({ checked, onChange, label }: { checked: boolean, onChange: (checked: boolean) => void, label: string }) => (
@@ -44,13 +44,17 @@ export default function SettingsPage() {
   const [floorplanEnabled, setFloorplanEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [currency, setCurrency] = useState('USD');
+  const [currency, setCurrency] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('selectedCurrency') || 'USD';
+    }
+    return 'USD';
+  });
   const [profileId, setProfileId] = useState<string | null>(null);
   const currencyList = [
     { code: 'USD', name: 'US Dollar' },
     { code: 'EUR', name: 'Euro' },
     { code: 'GBP', name: 'British Pound' },
-    { code: 'INR', name: 'Indian Rupee' },
     { code: 'JPY', name: 'Japanese Yen' },
     { code: 'AUD', name: 'Australian Dollar' },
     { code: 'CAD', name: 'Canadian Dollar' },
@@ -61,76 +65,38 @@ export default function SettingsPage() {
     { code: 'SEK', name: 'Swedish Krona' },
     { code: 'KRW', name: 'South Korean Won' },
     { code: 'SGD', name: 'Singapore Dollar' },
-    { code: 'ZAR', name: 'South African Rand' },
-    { code: 'BRL', name: 'Brazilian Real' },
-    { code: 'MXN', name: 'Mexican Peso' },
-    { code: 'RUB', name: 'Russian Ruble' },
-    { code: 'TRY', name: 'Turkish Lira' },
-    { code: 'AED', name: 'UAE Dirham' },
-    { code: 'SAR', name: 'Saudi Riyal' },
-    { code: 'PLN', name: 'Polish Zloty' },
     { code: 'NOK', name: 'Norwegian Krone' },
+    { code: 'MXN', name: 'Mexican Peso' },
+    { code: 'INR', name: 'Indian Rupee' },
+    { code: 'RUB', name: 'Russian Ruble' },
+    { code: 'ZAR', name: 'South African Rand' },
+    { code: 'TRY', name: 'Turkish Lira' },
+    { code: 'BRL', name: 'Brazilian Real' },
+    { code: 'TWD', name: 'Taiwan Dollar' },
     { code: 'DKK', name: 'Danish Krone' },
+    { code: 'PLN', name: 'Polish Zloty' },
     { code: 'THB', name: 'Thai Baht' },
     { code: 'IDR', name: 'Indonesian Rupiah' },
-    { code: 'MYR', name: 'Malaysian Ringgit' },
-    { code: 'PHP', name: 'Philippine Peso' },
-    { code: 'VND', name: 'Vietnamese Dong' },
-    { code: 'TWD', name: 'Taiwan Dollar' },
-    { code: 'HUF', name: 'Hungarian Forint' },
-    { code: 'CZK', name: 'Czech Koruna' },
-    { code: 'ILS', name: 'Israeli Shekel' },
-    { code: 'CLP', name: 'Chilean Peso' },
-    { code: 'PKR', name: 'Pakistani Rupee' },
-    { code: 'EGP', name: 'Egyptian Pound' },
-    { code: 'NGN', name: 'Nigerian Naira' },
-    { code: 'KES', name: 'Kenyan Shilling' },
-    { code: 'GHS', name: 'Ghanaian Cedi' },
-    { code: 'COP', name: 'Colombian Peso' },
-    { code: 'ARS', name: 'Argentine Peso' },
-    { code: 'PEN', name: 'Peruvian Sol' },
-    { code: 'UAH', name: 'Ukrainian Hryvnia' },
-    { code: 'QAR', name: 'Qatari Riyal' },
-    { code: 'BHD', name: 'Bahraini Dinar' },
-    { code: 'OMR', name: 'Omani Rial' },
-    { code: 'KWD', name: 'Kuwaiti Dinar' },
-    { code: 'LKR', name: 'Sri Lankan Rupee' },
-    { code: 'BDT', name: 'Bangladeshi Taka' },
-    { code: 'MAD', name: 'Moroccan Dirham' },
-    { code: 'RON', name: 'Romanian Leu' },
-    { code: 'HRK', name: 'Croatian Kuna' },
-    { code: 'RSD', name: 'Serbian Dinar' },
-    { code: 'BGN', name: 'Bulgarian Lev' },
-    { code: 'ISK', name: 'Icelandic Krona' },
-    { code: 'GEL', name: 'Georgian Lari' },
-    { code: 'UZS', name: 'Uzbekistani Som' },
-    { code: 'KZT', name: 'Kazakhstani Tenge' },
-    { code: 'BYN', name: 'Belarusian Ruble' },
-    { code: 'AZN', name: 'Azerbaijani Manat' },
-    { code: 'AMD', name: 'Armenian Dram' },
-    { code: 'MKD', name: 'Macedonian Denar' },
-    { code: 'ALL', name: 'Albanian Lek' },
-    { code: 'BAM', name: 'Bosnia-Herzegovina Convertible Mark' },
-    { code: 'MDL', name: 'Moldovan Leu' },
-    { code: 'MNT', name: 'Mongolian Tugrik' },
-    { code: 'MOP', name: 'Macanese Pataca' },
-    { code: 'JMD', name: 'Jamaican Dollar' },
-    { code: 'XOF', name: 'West African CFA franc' },
-    { code: 'XAF', name: 'Central African CFA franc' },
-    { code: 'XCD', name: 'East Caribbean Dollar' },
-    { code: 'XPF', name: 'CFP Franc' },
-    { code: 'XUA', name: 'ADB Unit of Account' },
-    { code: 'XAG', name: 'Silver (troy ounce)' },
-    { code: 'XAU', name: 'Gold (troy ounce)' },
-    { code: 'XDR', name: 'IMF Special Drawing Rights' },
-    { code: 'XTS', name: 'Testing Currency Code' },
-    { code: 'XXX', name: 'No Currency' },
   ];
+  const [tab, setTab] = useState(0);
+  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => setTab(newValue);
+
+  useEffect(() => {
+    // Fetch feature toggles from API
+    async function fetchToggles() {
+      setLoading(true);
+      const res = await fetch('/api/settings');
+      const data = await res.json();
+      setReligionEnabled(data.religion_enabled);
+      setFloorplanEnabled(data.floorplan_enabled);
+      setLoading(false);
+    }
+    fetchToggles();
+  }, []);
 
   useEffect(() => {
     // Fetch user profile and currency from Supabase
     async function fetchProfile() {
-      setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: profile, error } = await supabase
@@ -141,9 +107,11 @@ export default function SettingsPage() {
         if (profile) {
           setProfileId(profile.id);
           setCurrency(profile.currency || 'USD');
+          if (profile.currency) {
+            localStorage.setItem('selectedCurrency', profile.currency);
+          }
         }
       }
-      setLoading(false);
     }
     fetchProfile();
   }, []);
@@ -166,6 +134,7 @@ export default function SettingsPage() {
 
   const handleCurrencyChange = async (newCurrency: string) => {
     setCurrency(newCurrency);
+    localStorage.setItem('selectedCurrency', newCurrency);
     setSaving(true);
     if (profileId) {
       await supabase.from('profiles').update({ currency: newCurrency }).eq('id', profileId);
@@ -174,99 +143,140 @@ export default function SettingsPage() {
     window.dispatchEvent(new Event('currencyChanged'));
   };
 
+  function TabPanel(props: { children: React.ReactNode; value: number; index: number }) {
+    const { children, value, index, ...other } = props;
+    return (
+      <div
+        role="tabpanel"
+        hidden={value !== index}
+        id={`settings-tabpanel-${index}`}
+        aria-labelledby={`settings-tab-${index}`}
+        {...other}
+      >
+        {value === index && <Box sx={{ pt: 2 }}>{children}</Box>}
+      </div>
+    );
+  }
+
   if (loading) return <div style={{ maxWidth: 600, margin: '0 auto', padding: 32 }}>Loading settings...</div>;
 
   return (
     <div style={{ maxWidth: 600, margin: "0 auto", padding: 32 }}>
       <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 24 }}>Settings</h1>
-      <section style={{ marginBottom: 32 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 600 }}>Profile</h2>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
-          <label>
-            Name
-            <input type="text" placeholder="Your Name" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ccc" }} disabled />
-          </label>
-          <label>
-            Email
-            <input type="email" placeholder="you@example.com" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ccc" }} disabled />
-          </label>
-        </div>
-      </section>
-      <section style={{ marginBottom: 32 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 600 }}>Account</h2>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
-          <label>
-            Password
-            <input type="password" placeholder="********" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ccc" }} disabled />
-          </label>
-        </div>
-      </section>
-      <section style={{ marginBottom: 32 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 600 }}>Notifications</h2>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <input type="checkbox" disabled /> Email Notifications
-          </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <input type="checkbox" disabled /> SMS Notifications
-          </label>
-        </div>
-      </section>
-      <section style={{ marginBottom: 32 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 600 }}>Privacy</h2>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <input type="checkbox" disabled /> Make profile private
-          </label>
-        </div>
-      </section>
-      <section>
-        <h2 style={{ fontSize: 20, fontWeight: 600 }}>Theme</h2>
-        <div style={{ display: "flex", flexDirection: "row", gap: 16, marginTop: 12 }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <input type="radio" name="theme" disabled /> Light
-          </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <input type="radio" name="theme" disabled /> Dark
-          </label>
-        </div>
-      </section>
-      <section style={{ marginBottom: 32 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 600 }}>Feature Toggles</h2>
-        <div style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 12 }}>
-          <Toggle
-            checked={religionEnabled}
-            onChange={checked => updateSettings(checked, floorplanEnabled)}
-            label="Enable Religion Page"
-          />
-          <Toggle
-            checked={floorplanEnabled}
-            onChange={checked => updateSettings(religionEnabled, checked)}
-            label="Enable Floorplan Page"
-          />
-          {saving && <span style={{ color: '#7c3aed', fontSize: 14 }}>Saving...</span>}
-        </div>
-      </section>
-      <section style={{ marginBottom: 32 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 600 }}>Currency</h2>
-        <FormControl fullWidth sx={{ mt: 2 }}>
-          <InputLabel id="currency-label">Currency</InputLabel>
-          <Select
-            labelId="currency-label"
-            value={currency}
-            label="Currency"
-            onChange={e => handleCurrencyChange(e.target.value)}
-          >
-            {currencyList.map(c => (
-              <MenuItem key={c.code} value={c.code}>{c.code} - {c.name}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <div style={{ marginTop: 8, color: '#6b7280', fontSize: 14 }}>
-          Selected currency: <b>{currency}</b>
-          {saving && <span style={{ color: '#7c3aed', fontSize: 14, marginLeft: 12 }}>Saving...</span>}
-        </div>
-      </section>
+      <Tabs value={tab} onChange={handleTabChange} aria-label="settings tabs" sx={{ mb: 2 }}>
+        <Tab label="Profile" id="settings-tab-0" aria-controls="settings-tabpanel-0" />
+        <Tab label="Team" id="settings-tab-1" aria-controls="settings-tabpanel-1" />
+        <Tab label="Configurations" id="settings-tab-2" aria-controls="settings-tabpanel-2" />
+      </Tabs>
+      <TabPanel value={tab} index={0}>
+        {/* Profile Tab Content */}
+        <section style={{ marginBottom: 32 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 600 }}>Profile</h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
+            <label>
+              Name
+              <input type="text" placeholder="Your Name" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ccc" }} disabled />
+            </label>
+            <label>
+              Email
+              <input type="email" placeholder="you@example.com" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ccc" }} disabled />
+            </label>
+          </div>
+        </section>
+        <section style={{ marginBottom: 32 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 600 }}>Account</h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
+            <label>
+              Password
+              <input type="password" placeholder="********" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ccc" }} disabled />
+            </label>
+          </div>
+        </section>
+        <section style={{ marginBottom: 32 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 600 }}>Notifications</h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input type="checkbox" disabled /> Email Notifications
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input type="checkbox" disabled /> SMS Notifications
+            </label>
+          </div>
+        </section>
+        <section style={{ marginBottom: 32 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 600 }}>Privacy</h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input type="checkbox" disabled /> Make profile private
+            </label>
+          </div>
+        </section>
+        <section>
+          <h2 style={{ fontSize: 20, fontWeight: 600 }}>Theme</h2>
+          <div style={{ display: "flex", flexDirection: "row", gap: 16, marginTop: 12 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input type="radio" name="theme" disabled /> Light
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input type="radio" name="theme" disabled /> Dark
+            </label>
+          </div>
+        </section>
+      </TabPanel>
+      <TabPanel value={tab} index={1}>
+        {/* Team Tab Content */}
+        <section style={{ marginBottom: 32 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 600 }}>Invite Team Member</h2>
+          <form style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 400 }} onSubmit={e => e.preventDefault()}>
+            <label>
+              Email
+              <input type="email" placeholder="team@example.com" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ccc" }} />
+            </label>
+            <button type="submit" style={{ padding: 10, borderRadius: 6, background: '#7c3aed', color: '#fff', border: 'none', fontWeight: 600, cursor: 'pointer' }} disabled>
+              Send Invite (Coming Soon)
+            </button>
+          </form>
+        </section>
+      </TabPanel>
+      <TabPanel value={tab} index={2}>
+        {/* Configurations Tab Content */}
+        <section style={{ marginBottom: 32 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 600 }}>Feature Toggles</h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 12 }}>
+            <Toggle
+              checked={religionEnabled}
+              onChange={checked => updateSettings(checked, floorplanEnabled)}
+              label="Enable Religion Page"
+            />
+            <Toggle
+              checked={floorplanEnabled}
+              onChange={checked => updateSettings(religionEnabled, checked)}
+              label="Enable Floorplan Page"
+            />
+            {saving && <span style={{ color: '#7c3aed', fontSize: 14 }}>Saving...</span>}
+          </div>
+        </section>
+        <section style={{ marginBottom: 32 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 600 }}>Currency</h2>
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel id="currency-label">Currency</InputLabel>
+            <Select
+              labelId="currency-label"
+              value={currency}
+              label="Currency"
+              onChange={e => handleCurrencyChange(e.target.value)}
+            >
+              {currencyList.map(c => (
+                <MenuItem key={c.code} value={c.code}>{c.code} - {c.name}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <div style={{ marginTop: 8, color: '#6b7280', fontSize: 14 }}>
+            Selected currency: <b>{currency}</b>
+            {saving && <span style={{ color: '#7c3aed', fontSize: 14, marginLeft: 12 }}>Saving...</span>}
+          </div>
+        </section>
+      </TabPanel>
     </div>
   );
 } 

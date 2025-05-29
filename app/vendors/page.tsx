@@ -1,12 +1,17 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../src/lib/supabase';
+import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { Button, Stack } from '@mui/material';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 interface VendorData {
   id: string;
   name: string;
   date: string;
-  time: string;
+  start_time: string;
+  end_time: string;
   location: string;
   type: string;
   category: string;
@@ -15,11 +20,136 @@ interface VendorData {
 export default function VendorsPage() {
   const [vendors, setVendors] = useState<VendorData[]>([]);
   const [vendorForm, setVendorForm] = useState<Omit<VendorData, 'id'>>({
-    name: '', date: '', time: '', location: '', type: '', category: ''
+    name: '', date: '', start_time: '', end_time: '', location: '', type: '', category: ''
   });
   const [editingVendorId, setEditingVendorId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [inlineEditRowId, setInlineEditRowId] = useState<string | null>(null);
+  const [inlineEditRow, setInlineEditRow] = useState<Partial<VendorData> | null>(null);
+  const [inlineEditLoading, setInlineEditLoading] = useState(false);
+
+  // DataGrid column state persistence
+  const [columnState, setColumnState] = useState<any>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('vendorColumnState');
+      return saved ? JSON.parse(saved) : undefined;
+    }
+    return undefined;
+  });
+
+  // DataGrid columns for vendors
+  const vendorColumns: GridColDef[] = [
+    { field: 'name', headerName: 'Name', flex: 1, minWidth: 140, headerClassName: 'center-header', editable: true },
+    { field: 'date', headerName: 'Date', flex: 1, minWidth: 110, headerClassName: 'center-header', editable: true },
+    { field: 'start_time', headerName: 'Start Time', flex: 1, minWidth: 100, headerClassName: 'center-header', editable: true },
+    { field: 'end_time', headerName: 'End Time', flex: 1, minWidth: 100, headerClassName: 'center-header', editable: true },
+    { field: 'location', headerName: 'Location', flex: 1, minWidth: 120, headerClassName: 'center-header', editable: true },
+    { field: 'type', headerName: 'Type', flex: 1, minWidth: 110, headerClassName: 'center-header', editable: true },
+    { field: 'category', headerName: 'Category', flex: 1, minWidth: 110, headerClassName: 'center-header', editable: true },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      flex: 1,
+      minWidth: 140,
+      sortable: false,
+      filterable: false,
+      renderCell: (params: GridRenderCellParams) => {
+        const isEditing = inlineEditRowId === params.row.id;
+        return (
+          <Stack direction="row" spacing={1}>
+            {isEditing ? (
+              <Button
+                variant="contained"
+                color="success"
+                size="small"
+                disabled={inlineEditLoading}
+                onClick={async () => {
+                  setInlineEditLoading(true);
+                  const { error } = await supabase.from('vendors').update(inlineEditRow).eq('id', params.row.id);
+                  if (!error) {
+                    setSuccess('Vendor updated!');
+                    setInlineEditRowId(null);
+                    setInlineEditRow(null);
+                    fetchVendors();
+                  } else {
+                    setError('Failed to update vendor.');
+                  }
+                  setInlineEditLoading(false);
+                }}
+                sx={{ fontWeight: 600, textTransform: 'none' }}
+              >
+                Save
+              </Button>
+            ) : (
+              <Button
+                variant="outlined"
+                color="primary"
+                size="small"
+                startIcon={<EditIcon />}
+                onClick={() => {
+                  setInlineEditRowId(params.row.id);
+                  setInlineEditRow(params.row);
+                }}
+                sx={{ fontWeight: 600, textTransform: 'none' }}
+              >
+                Edit
+              </Button>
+            )}
+            <Button
+              variant="outlined"
+              color="error"
+              size="small"
+              startIcon={<DeleteIcon />}
+              onClick={() => handleDeleteVendor(params.row.id)}
+              sx={{ fontWeight: 600, textTransform: 'none' }}
+            >
+              Delete
+            </Button>
+          </Stack>
+        );
+      },
+      cellClassName: 'center-cell',
+      headerClassName: 'center-header',
+    },
+  ];
+
+  // Patch DataGrid columns to always apply headerClassName
+  const columnsWithHandler = vendorColumns.map((col) => ({
+    ...col,
+    headerClassName: col.headerClassName || 'center-header',
+    editable: col.field !== 'actions',
+  }));
+
+  // Only allow editing for the selected row
+  const isCellEditable = (params: any) => {
+    return inlineEditRowId === params.row.id && params.field !== 'actions';
+  };
+
+  // Track changes to the inline edit row
+  const handleInlineEditChange = (params: any) => {
+    if (inlineEditRowId === params.id) {
+      setInlineEditRow((prev) => ({ ...prev, [params.field]: params.value }));
+    }
+    return params.value;
+  };
+
+  // Handlers to persist column changes
+  const handleColumnOrderChange = (params: any) => {
+    const newState = { ...columnState, order: params.columnOrder };
+    setColumnState(newState);
+    localStorage.setItem('vendorColumnState', JSON.stringify(newState));
+  };
+  const handleColumnVisibilityModelChange = (model: any) => {
+    const newState = { ...columnState, visibility: model };
+    setColumnState(newState);
+    localStorage.setItem('vendorColumnState', JSON.stringify(newState));
+  };
+  const handleColumnWidthChange = (params: any) => {
+    const newState = { ...columnState, width: { ...(columnState?.width || {}), [params.colDef.field]: params.width } };
+    setColumnState(newState);
+    localStorage.setItem('vendorColumnState', JSON.stringify(newState));
+  };
 
   useEffect(() => {
     fetchVendors();
@@ -33,7 +163,7 @@ export default function VendorsPage() {
 
   async function handleVendorSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!vendorForm.name || !vendorForm.date || !vendorForm.time) {
+    if (!vendorForm.name || !vendorForm.date || !vendorForm.start_time) {
       setError('Please fill out all required fields.');
       return;
     }
@@ -45,7 +175,7 @@ export default function VendorsPage() {
       else {
         setSuccess('Vendor updated!');
         setEditingVendorId(null);
-        setVendorForm({ name: '', date: '', time: '', location: '', type: '', category: '' });
+        setVendorForm({ name: '', date: '', start_time: '', end_time: '', location: '', type: '', category: '' });
         fetchVendors();
       }
     } else {
@@ -53,7 +183,7 @@ export default function VendorsPage() {
       if (error) setError('Failed to add vendor.');
       else {
         setSuccess('Vendor added!');
-        setVendorForm({ name: '', date: '', time: '', location: '', type: '', category: '' });
+        setVendorForm({ name: '', date: '', start_time: '', end_time: '', location: '', type: '', category: '' });
         fetchVendors();
       }
     }
@@ -166,7 +296,7 @@ export default function VendorsPage() {
     <div style={pageWrapperStyle}>
       <h2 style={{ fontSize: 22, fontWeight: 700, color: '#7c3aed', marginBottom: 8, letterSpacing: 0.2 }}>Vendors</h2>
       <form style={formStyle} onSubmit={handleVendorSubmit} id="vendor-form">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 18 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 18 }}>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <label style={labelStyle}>Name *</label>
             <input style={inputStyle} name="name" value={vendorForm.name} onChange={handleChange} placeholder="Vendor Name" />
@@ -176,8 +306,12 @@ export default function VendorsPage() {
             <input style={inputStyle} name="date" type="date" value={vendorForm.date} onChange={handleChange} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <label style={labelStyle}>Time *</label>
-            <input style={inputStyle} name="time" type="time" value={vendorForm.time} onChange={handleChange} />
+            <label style={labelStyle}>Start Time *</label>
+            <input style={inputStyle} name="start_time" type="time" value={vendorForm.start_time} onChange={handleChange} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <label style={labelStyle}>End Time</label>
+            <input style={inputStyle} name="end_time" type="time" value={vendorForm.end_time} onChange={handleChange} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <label style={labelStyle}>Location</label>
@@ -202,7 +336,7 @@ export default function VendorsPage() {
               style={{ ...buttonStyle, background: '#f3f4f6', color: '#7c3aed', boxShadow: 'none', border: '1px solid #a78bfa' }}
               onClick={() => {
                 setEditingVendorId(null);
-                setVendorForm({ name: '', date: '', time: '', location: '', type: '', category: '' });
+                setVendorForm({ name: '', date: '', start_time: '', end_time: '', location: '', type: '', category: '' });
                 setError('');
                 setSuccess('');
               }}
@@ -212,38 +346,32 @@ export default function VendorsPage() {
           )}
         </div>
       </form>
-      <div style={{ width: '100%', overflowX: 'auto' }}>
-        <table style={tableStyle}>
-          <thead>
-            <tr>
-              <th style={thStyle}>Name</th>
-              <th style={thStyle}>Date</th>
-              <th style={thStyle}>Time</th>
-              <th style={thStyle}>Location</th>
-              <th style={thStyle}>Type</th>
-              <th style={thStyle}>Category</th>
-              <th style={thStyle}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {vendors.length === 0 ? (
-              <tr><td colSpan={7} style={{ padding: 32, textAlign: 'center', color: '#a1a1aa', fontSize: 15 }}>No vendors found.</td></tr>
-            ) : vendors.map(vendor => (
-              <tr key={vendor.id}>
-                <td style={tdStyle}>{vendor.name}</td>
-                <td style={tdStyle}>{vendor.date}</td>
-                <td style={tdStyle}>{vendor.time}</td>
-                <td style={tdStyle}>{vendor.location}</td>
-                <td style={tdStyle}>{vendor.type}</td>
-                <td style={tdStyle}>{vendor.category}</td>
-                <td style={actionsTdStyle}>
-                  <button onClick={() => handleEditVendor(vendor)} style={{ background: '#ede9fe', color: '#7c3aed', border: '1px solid #a78bfa', borderRadius: 6, padding: '4px 12px', fontWeight: 600, cursor: 'pointer', fontSize: 13, marginRight: 8 }}>Edit</button>
-                  <button onClick={() => handleDeleteVendor(vendor.id)} style={{ background: '#fff', color: '#ef4444', border: '1px solid #ef4444', borderRadius: 6, padding: '4px 12px', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>Delete</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div style={{ width: '100%', overflowX: 'auto', marginTop: 32 }}>
+        <DataGrid
+          rows={vendors}
+          columns={columnsWithHandler}
+          getRowId={(row) => row.id}
+          initialState={columnState ? { ...columnState, pagination: { paginationModel: { pageSize: 5, page: 0 } } } : { pagination: { paginationModel: { pageSize: 5, page: 0 } } }}
+          disableRowSelectionOnClick
+          onColumnOrderChange={handleColumnOrderChange}
+          onColumnVisibilityModelChange={handleColumnVisibilityModelChange}
+          onColumnWidthChange={handleColumnWidthChange}
+          isCellEditable={isCellEditable}
+          processRowUpdate={handleInlineEditChange}
+          experimentalFeatures={{ newEditingApi: true }}
+          sx={{
+            border: 'none',
+            fontSize: 16,
+            '& .MuiDataGrid-columnHeaders': { bgcolor: '#ede9fe', color: '#7c3aed', fontWeight: 700 },
+            '& .MuiDataGrid-row': { bgcolor: '#fff' },
+            '& .MuiDataGrid-row.Mui-selected, & .MuiDataGrid-row[data-rowindex][data-id].Mui-selected': { bgcolor: '#f3e8ff !important' },
+            '& .MuiDataGrid-row.editing-row': { bgcolor: '#f3e8ff !important' },
+            '& .MuiDataGrid-footerContainer': { bgcolor: '#ede9fe' },
+            '& .center-cell': { textAlign: 'center', justifyContent: 'center', display: 'flex', alignItems: 'center' },
+            width: '100%',
+          }}
+          getRowClassName={(params) => (inlineEditRowId === params.id ? 'editing-row' : '')}
+        />
       </div>
     </div>
   );

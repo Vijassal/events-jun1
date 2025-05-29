@@ -2,6 +2,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { supabase } from '../../src/lib/supabase';
+import { DataGrid, GridColDef } from '@mui/x-data-grid';
+import { Typography, Box } from '@mui/material';
+import { KeyboardArrowDown, KeyboardArrowRight } from '@mui/icons-material';
 
 const ParticipantForm = dynamic(() => import('../../src/components/participants/ParticipantForm'), { ssr: false });
 
@@ -89,6 +92,13 @@ export default function InvitePage() {
   // Add a separate state for the view name input
   const [viewNameInput, setViewNameInput] = useState('');
   const [viewsLoading, setViewsLoading] = useState(false);
+  // 1. Add new state for selected views, default view, and views to delete
+  const [selectedViewIds, setSelectedViewIds] = useState<string[]>([]);
+  const [pendingDefaultViewId, setPendingDefaultViewId] = useState<string | null>(null);
+  const [viewsToDelete, setViewsToDelete] = useState<string[]>([]);
+  // Add state for editing view
+  const [editingViewId, setEditingViewId] = useState<string | null>(null);
+  const [expandedRows, setExpandedRows] = useState<string[]>([]);
 
   // Derived fields list
   const allFields = [...DEFAULT_FIELDS, ...customFields.map(f => f.label)];
@@ -579,27 +589,44 @@ export default function InvitePage() {
     if (!account?.id) {
       // Try to create one if not found
       const insertObj = { name: session.user.email || 'My Account', owner_user_id: session.user.id };
-      console.log('Attempting to insert account_instance:', insertObj);
       const { data: newAcc, error: newAccErr } = await supabase
         .from('account_instances')
         .insert([insertObj])
         .select('id')
         .single();
-      if (newAccErr) {
-        console.error('fetchParticipants: failed to create account', newAccErr);
-        return;
-      }
+      if (newAccErr) return;
       account = newAcc;
     }
     setAccount(account);
-    // Fetch participants for this account_instance_id
-    const { data, error } = await supabase
+    // Fetch main participants
+    const { data: mainParticipants, error: mainErr } = await supabase
       .from('participants')
       .select('*')
       .eq('account_instance_id', account.id);
-    if (error) console.error('fetchParticipants: participants error', error);
-    console.log('fetchParticipants: participants', data);
-    setParticipants(data || []);
+    if (mainErr) return;
+    // Fetch all additional participants for this account
+    const { data: allAdditional, error: addErr } = await supabase
+      .from('additional_participants')
+      .select('*')
+      .eq('account_instance_id', account.id);
+    if (addErr) return;
+    // Group additional participants by main_participant_id
+    const additionalByMain: Record<string, any[]> = {};
+    (allAdditional || []).forEach(ap => {
+      if (!additionalByMain[ap.main_participant_id]) additionalByMain[ap.main_participant_id] = [];
+      additionalByMain[ap.main_participant_id].push(ap);
+    });
+    // Attach to main participants
+    const participantsWithAdditional = (mainParticipants || []).map(mp => ({
+      ...mp,
+      additional_participants: (additionalByMain[mp.id] || []).map(ap => ({
+        ...ap,
+        isChild: ap.is_child,
+        childAge: ap.child_age,
+      })),
+    }));
+    console.log("Fetched participants:", participantsWithAdditional); // <-- Add this
+    setParticipants(participantsWithAdditional);
   }
 
   useEffect(() => {
@@ -608,37 +635,69 @@ export default function InvitePage() {
 
   // Add handleAddAdditional function
   const handleAddAdditional = async (additional: any) => {
-    if (!mainParticipantId) {
+    if (!mainParticipantId || !account?.id) {
       setAdditionalError('Please save the main participant before adding additional participants.');
       setTimeout(() => setAdditionalError(null), 2000);
       return;
     }
-    // Fetch current additional_participants from DB
-    const { data: participant, error: fetchErr } = await supabase
-      .from('participants')
-      .select('additional_participants')
-      .eq('id', mainParticipantId)
-      .single();
-    if (fetchErr) {
-      setAdditionalError('Could not fetch participant.');
-      setTimeout(() => setAdditionalError(null), 2000);
-      return;
-    }
-    const updatedAdditional = Array.isArray(participant.additional_participants)
-      ? [...participant.additional_participants, additional]
-      : [additional];
-    // Update in DB
-    const { error: updateErr } = await supabase
-      .from('participants')
-      .update({ additional_participants: updatedAdditional })
-      .eq('id', mainParticipantId);
-    if (updateErr) {
+    // Map camelCase to snake_case for DB and strip frontend-only fields
+    const { isChild, childAge, _rowType, _apIndex, isExpanded, id: _id, ...rest } = additional;
+    const dbAdditional = {
+      ...rest,
+      is_child: isChild,
+      child_age: childAge,
+      main_participant_id: mainParticipantId,
+      account_instance_id: account.id,
+    };
+    console.log('Inserting additional_participant:', dbAdditional); // Debug log
+    const { error: insertErr } = await supabase
+      .from('additional_participants')
+      .insert([dbAdditional]);
+    if (insertErr) {
       setAdditionalError('Could not save additional participant.');
       setTimeout(() => setAdditionalError(null), 2000);
       return;
     }
     setAdditionalSaved(true);
     setTimeout(() => setAdditionalSaved(false), 3000);
+    await fetchParticipants();
+  };
+
+  // Edit an additional participant
+  const handleEditAdditional = async (id: string, updated: any) => {
+    const { isChild: updIsChild, childAge: updChildAge, ...updRest } = updated;
+    // Strip frontend-only fields
+    const { _rowType, _apIndex, isExpanded, id: _id, ...dbFields } = updRest;
+    const dbUpdate = {
+      ...dbFields,
+      is_child: updIsChild,
+      child_age: updChildAge,
+    };
+    console.log('Updating additional_participant:', dbUpdate); // Debug log
+    const { error: updateErr } = await supabase
+      .from('additional_participants')
+      .update(dbUpdate)
+      .eq('id', id);
+    if (updateErr) {
+      setAdditionalError('Could not update additional participant.');
+      setTimeout(() => setAdditionalError(null), 2000);
+      return;
+    }
+    await fetchParticipants();
+  };
+
+  // Delete an additional participant
+  const handleDeleteAdditional = async (id: string) => {
+    const { error: deleteErr } = await supabase
+      .from('additional_participants')
+      .delete()
+      .eq('id', id);
+    if (deleteErr) {
+      setAdditionalError('Could not delete additional participant.');
+      setTimeout(() => setAdditionalError(null), 2000);
+      return;
+    }
+    await fetchParticipants();
   };
 
   // Fix refresh button to always call fetchParticipants
@@ -718,17 +777,217 @@ export default function InvitePage() {
     }
   }, [account?.id]);
 
+  // Helper to flatten participants and additional participants for DataGrid
+  const getDataGridRows = () => {
+    const rows: any[] = [];
+    participants.forEach((p) => {
+      rows.push({
+        ...p,
+        _rowType: 'main',
+        isExpanded: expandedRows.includes(p.id),
+      });
+      if (expandedRows.includes(p.id) && Array.isArray(p.additional_participants)) {
+        p.additional_participants.forEach((ap: any, idx: number) => {
+          rows.push({
+            ...ap,
+            isChild: ap.is_child ?? ap.isChild ?? false,
+            childAge: ap.child_age ?? ap.childAge ?? '',
+            is_child: ap.is_child ?? ap.isChild ?? false,
+            child_age: ap.child_age ?? ap.childAge ?? '',
+            _rowType: 'additional',
+            _apIndex: idx,
+            id: ap.id, // Use the real UUID from the DB
+          });
+        });
+      }
+    });
+    return rows;
+  };
+
+  // DataGrid columns based on orderedFields
+  const columns: GridColDef[] = [
+    {
+      field: 'expand',
+      headerName: '',
+      width: 40,
+      sortable: false,
+      filterable: false,
+      renderCell: (params: any) => {
+        if (params.row._rowType !== 'main') return null;
+        // Only show expand/collapse if there are additional participants
+        if (!Array.isArray(params.row.additional_participants) || params.row.additional_participants.length === 0) return null;
+        const isExpanded = expandedRows.includes(params.row.id);
+        return (
+          <button
+            onClick={e => {
+              e.stopPropagation();
+              handleToggleExpand(params.row.id);
+            }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, margin: 0 }}
+            aria-label={isExpanded ? 'Collapse' : 'Expand'}
+          >
+            {isExpanded ? <KeyboardArrowDown fontSize="small" /> : <KeyboardArrowRight fontSize="small" />}
+          </button>
+        );
+      },
+    },
+    // Only include real participant fields and custom fields, never client-only fields like _mainId, _rowType, _apIndex, isExpanded
+    ...orderedFields
+      .filter(field => !['_mainId', '_rowType', '_apIndex', 'isExpanded'].includes(field))
+      .map((field) => ({
+        field: fieldMap[field] || field,
+        headerName: field,
+        flex: 1,
+        minWidth: colWidths[field] || 120,
+        renderCell: (params: any) => {
+          if ((field === 'Additional Participants' || fieldMap[field] === 'additional_participants') && params.row._rowType === 'main') {
+            const count = Array.isArray(params.row.additional_participants) ? params.row.additional_participants.length : 0;
+            return (
+              <span style={{ fontWeight: 600, color: '#6366f1', textAlign: 'center', width: '100%' }}>
+                {count > 0 ? count : ''}
+              </span>
+            );
+          }
+          let value = params.value;
+          if (Array.isArray(value)) value = value.join(', ');
+          if (typeof value === 'object' && value !== null) value = JSON.stringify(value);
+          return (
+            <span
+              style={{
+                fontStyle: params.row._rowType === 'additional' ? 'italic' : 'normal',
+                color: params.row._rowType === 'additional' ? '#6366f1' : '#374151',
+                marginLeft: params.row._rowType === 'additional' ? 24 : 0,
+                fontSize: params.row._rowType === 'additional' ? '87%' : '100%',
+              }}
+            >
+              {value || ''}
+            </span>
+          );
+        },
+      })),
+  ];
+
+  // 2. When views are loaded, update selectedViewIds and pendingDefaultViewId
+  useEffect(() => {
+    if (views.length > 0) {
+      setSelectedViewIds(views.map(v => v.id)); // All views selected by default
+      const defaultView = views.find(v => v.isDefault);
+      setPendingDefaultViewId(defaultView ? defaultView.id : null);
+    }
+  }, [views]);
+
+  // 3. Add handler for checkbox select, default select, delete mark
+  const handleViewCheckbox = (id: string) => {
+    setSelectedViewIds(prev => prev.includes(id) ? prev.filter(v => v !== id) : [...prev, id]);
+  };
+  const handleDefaultCheckbox = (id: string) => {
+    setPendingDefaultViewId(id);
+  };
+  const handleMarkDeleteView = (id: string) => {
+    setViewsToDelete(prev => prev.includes(id) ? prev.filter(v => v !== id) : [...prev, id]);
+    // Also unselect and unset as default if deleted
+    setSelectedViewIds(prev => prev.filter(v => v !== id));
+    if (pendingDefaultViewId === id) setPendingDefaultViewId(null);
+  };
+
+  // 4. Save all changes at once
+  const handleSaveViewsSettings = async () => {
+    if (!account?.id) return;
+    // Delete marked views
+    for (const id of viewsToDelete) {
+      await supabase.from('views').delete().eq('id', id);
+    }
+    // Set default (only one)
+    for (const v of views) {
+      if (!viewsToDelete.includes(v.id)) {
+        await supabase.from('views').update({ isDefault: v.id === pendingDefaultViewId }).eq('id', v.id);
+      }
+    }
+    // Optionally, could also update a 'selected' property if needed
+    await fetchViews(account.id);
+    setViewsToDelete([]);
+    setNotification('Settings saved!');
+    setTimeout(() => setNotification(null), 1800);
+  };
+
+  // 5. On page load, always apply the default view if set
+  useEffect(() => {
+    if (views.length > 0 && !currentView) {
+      const defaultView = views.find(v => v.isDefault);
+      if (defaultView) {
+        handleSelectView(defaultView.name);
+      }
+    }
+    // eslint-disable-next-line
+  }, [views]);
+
+  // Handler for starting edit
+  const handleEditView = (id: string) => {
+    const view = views.find(v => v.id === id);
+    if (view) {
+      setEditingViewId(id);
+      setViewNameInput(view.name);
+      setFieldOrder(view.fields);
+      setVisibleFields(view.visible);
+      setStatsConfig(view.statsConfig || []);
+      setCustomFields(view.customFields || []);
+      setChildExclusionAge(view.childExclusionAge || 5);
+    }
+  };
+  // Handler for saving (new or edit)
+  const handleSaveViewWithName = async () => {
+    if (!account?.id) return;
+    if (!viewNameInput.trim()) {
+      setNotification('Please enter a view name.');
+      setTimeout(() => setNotification(null), 1800);
+      return;
+    }
+    const isEdit = !!editingViewId;
+    const viewObj = {
+      account_instance_id: account.id,
+      name: viewNameInput.trim(),
+      fields: fieldOrder,
+      visible: visibleFields,
+      isDefault: false, // default is set separately
+      statsConfig,
+      customFields,
+      childExclusionAge,
+      ...(isEdit ? { id: editingViewId } : {}),
+    };
+    if (isEdit) {
+      // If renaming, delete old if name changed
+      const oldView = views.find(v => v.id === editingViewId);
+      if (oldView && oldView.name !== viewNameInput.trim()) {
+        await supabase.from('views').delete().eq('id', oldView.id);
+      }
+    }
+    const { error } = await supabase.from('views').upsert([viewObj], { onConflict: 'account_instance_id,name' });
+    if (error) {
+      setNotification('Error saving view: ' + error.message);
+      return;
+    }
+    await fetchViews(account.id);
+    setCurrentView(viewNameInput.trim());
+    setViewNameInput('');
+    setEditingViewId(null);
+    setNotification('View saved!');
+    setTimeout(() => setNotification(null), 1800);
+  };
+  const handleCancelEditView = () => {
+    setEditingViewId(null);
+    setViewNameInput('');
+  };
+
+  const handleToggleExpand = (participantId: string) => {
+    setExpandedRows(prev =>
+      prev.includes(participantId)
+        ? prev.filter(id => id !== participantId)
+        : [...prev, participantId]
+    );
+  };
+
   return (
     <>
-      {/* Stats Area at the top (larger, cleaner, more professional) */}
-      <div style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: 32, marginBottom: 32, gap: 36, flexWrap: 'wrap' }}>
-        {statsConfig.map((stat, idx) => (
-          <div key={idx} style={{ minWidth: 220, maxWidth: 220, minHeight: 110, maxHeight: 110, background: 'linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%)', borderRadius: 18, boxShadow: '0 4px 24px rgba(60,120,180,0.10)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 18, border: '1.5px solid #e5e7eb', transition: 'box-shadow 0.2s', fontWeight: 700, overflow: 'hidden', wordBreak: 'break-word', textAlign: 'center' }}>
-            <div style={{ fontSize: 16, color: '#6366f1', fontWeight: 700, marginBottom: 8, letterSpacing: 0.2, width: '100%', wordBreak: 'break-word', whiteSpace: 'pre-line', textAlign: 'center', minHeight: 38, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{stat.field}</div>
-            <div style={{ fontSize: 38, fontWeight: 800, color: '#374151', letterSpacing: 0.5, width: '100%', textAlign: 'center', wordBreak: 'break-word', minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{getStatValue(stat)}</div>
-          </div>
-        ))}
-      </div>
       {/* Stats Config Modal */}
       {showStatsConfig && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.18)', zIndex: 2100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -755,16 +1014,48 @@ export default function InvitePage() {
           </div>
         </div>
       )}
-      {/* Move table and buttons up by about 3 inches (72px) */}
-      <div style={{ height: 24 }} />
-      {/* Table Title, centered */}
-      <div style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: 8 }}>
-        <h2 style={{ fontSize: 22, fontWeight: 700, color: '#374151', letterSpacing: 0.2, margin: 0, textAlign: 'center' }}>Invite / Participants</h2>
-      </div>
-      {/* Button Row centered and aligned with table */}
-      <div style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: 8 }}>
-        <div style={{ width: '100%', maxWidth: 1600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', gap: 12 }}>
+      {/* Table Title */}
+      <div style={{
+        width: '100%',
+        marginTop: 32,
+        marginBottom: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 0,
+        paddingLeft: 32,
+        paddingRight: 32,
+        boxSizing: 'border-box',
+      }}>
+        <h2 style={{ fontSize: 22, fontWeight: 700, color: '#7c3aed', marginTop: 0, marginBottom: 0, letterSpacing: 0.2 }}>
+          Invite Management
+        </h2>
+        {/* Locked padding below title */}
+        <div style={{ width: '100%', height: 32, minHeight: 32, maxHeight: 32, pointerEvents: 'none', userSelect: 'none' }} />
+        {/* Stat Blocks Gap/Area, centered and fixed height only if stat blocks exist */}
+        <div style={{
+          width: '100%',
+          height: 146,
+          minHeight: 146,
+          maxHeight: 146,
+          marginBottom: 24,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 24,
+          boxSizing: 'border-box',
+          overflow: 'hidden',
+          transition: 'height 0.2s',
+        }}>
+          {statsConfig.length > 0 && statsConfig.map((stat, idx) => (
+            <div key={idx} style={{ minWidth: 220, maxWidth: 220, height: 110, background: 'linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%)', borderRadius: 18, boxShadow: '0 4px 24px rgba(60,120,180,0.10)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 12, border: '1.5px solid #e5e7eb', transition: 'box-shadow 0.2s', fontWeight: 700, overflow: 'hidden', wordBreak: 'break-word', textAlign: 'center' }}>
+              <div style={{ fontSize: 16, color: '#6366f1', fontWeight: 700, marginBottom: 8, letterSpacing: 0.2, width: '100%', wordBreak: 'break-word', whiteSpace: 'pre-line', textAlign: 'center', minHeight: 38, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{stat.field}</div>
+              <div style={{ fontSize: 38, fontWeight: 800, color: '#374151', letterSpacing: 0.5, width: '100%', textAlign: 'center', wordBreak: 'break-word', minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{getStatValue(stat)}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: 8 }}>
+          <div style={{ width: '100%', maxWidth: 1600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            {/* New button layout: Settings left, Add center, Refresh right */}
             <button
               onClick={handleSettingsClick}
               style={{
@@ -779,10 +1070,35 @@ export default function InvitePage() {
                 marginRight: 0,
                 boxShadow: '0 1px 6px rgba(60,120,180,0.04)',
                 transition: 'background 0.2s',
+                flex: '0 0 auto',
+                minWidth: 120,
+                alignSelf: 'flex-start',
               }}
             >
               ⚙️ Settings
             </button>
+            <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+              <button
+                onClick={handleAddClick}
+                style={{
+                  background: 'linear-gradient(90deg, #6366f1 0%, #db2777 100%)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 6,
+                  padding: '7px 54px', // 3x longer than before
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  boxShadow: '0 1px 6px rgba(99,102,241,0.08)',
+                  letterSpacing: 0.2,
+                  transition: 'background 0.2s',
+                  minWidth: 270,
+                  maxWidth: 400,
+                }}
+              >
+                + Add Participant
+              </button>
+            </div>
             <button
               onClick={handleRefresh}
               style={{
@@ -801,7 +1117,8 @@ export default function InvitePage() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: 8,
-                minWidth: 90,
+                minWidth: 120,
+                alignSelf: 'flex-end',
               }}
               disabled={refreshing}
             >
@@ -809,46 +1126,29 @@ export default function InvitePage() {
               Refresh
             </button>
           </div>
-          <button
-            onClick={handleAddClick}
-            style={{
-              background: 'linear-gradient(90deg, #6366f1 0%, #db2777 100%)',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 6,
-              padding: '7px 18px',
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: 'pointer',
-              boxShadow: '0 1px 6px rgba(99,102,241,0.08)',
-              letterSpacing: 0.2,
-              transition: 'background 0.2s',
-            }}
-          >
-            + Add Participant
-          </button>
         </div>
       </div>
       {/* Table container: stretches end to end with gap on sides and bottom */}
       <div
         className="horizontal-scroll-container"
         style={{
-          flex: 1,
-          width: 'calc(100% - 48px)',
+          width: 'auto',
+          height: 'calc(70vh)', // Fill most of the viewport height
           margin: '0 24px',
           paddingBottom: 32,
           background: 'transparent',
           display: 'flex',
           justifyContent: 'center',
-          overflowX: orderedFields.length > 11 ? 'auto' : 'hidden',
-          overflowY: 'hidden',
+          alignItems: 'stretch',
+          overflowX: 'auto',
+          overflowY: 'auto',
           minHeight: 60,
           WebkitOverflowScrolling: 'touch',
-          maxHeight: 480,
+          maxHeight: '70vh',
           position: 'relative',
         }}
       >
-        <div style={{ minWidth: (orderedFields.length * 120) + 'px' }}>
+        <div style={{ width: '100%', height: '100%' }}>
           <div
             style={{
               borderRadius: '0 0 32px 32px',
@@ -860,197 +1160,162 @@ export default function InvitePage() {
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'flex-start',
+              width: '100%',
+              height: '100%',
             }}
           >
-            <div
-              className="horizontal-scroll-container"
-              style={{
-                overflowX: 'auto',
-                overflowY: 'hidden',
-                width: '100%',
-                minHeight: 60,
-                WebkitOverflowScrolling: 'touch',
-                maxHeight: 480,
-                position: 'relative',
+            <DataGrid
+              rows={getDataGridRows()}
+              columns={columns}
+              getRowId={(row) => row.id || `${row.main_participant_id}-ap-${row._apIndex}`}
+              hideFooter
+              disableRowSelectionOnClick
+              onRowClick={(params) => {
+                if (params.row._rowType === 'main') {
+                  setEditParticipant(params.row);
+                } else if (params.row._rowType === 'additional') {
+                  setEditAdditional({ mainId: params.row.main_participant_id, index: params.row._apIndex, data: params.row });
+                }
               }}
-            >
-              <div style={{ minWidth: (orderedFields.length * 120) + 'px' }}>
-                <table style={{ minWidth: (orderedFields.length * 120) + 'px', tableLayout: 'fixed', fontFamily: 'Inter, Segoe UI, Arial, sans-serif', fontSize: 14, color: '#222', background: 'transparent' }}>
-                  <thead>
-                    {/* Filter Row above headers */}
-                    <tr>
-                      {orderedFields.map((field, idx) => (
-                        <th key={field + '-filter'} style={{ background: '#f4f6fb', padding: '7px 8px', borderBottom: '1px solid #e5e7eb', fontWeight: 500, fontSize: 13, borderTop: 'none', borderRight: idx !== orderedFields.length - 1 ? '1px solid #e5e7eb' : undefined, textAlign: 'center' }}>
-                          <select
-                            value={filters[field] || ''}
-                            onChange={e => handleFilterChange(field, e.target.value)}
-                            style={{
-                              width: '100%',
-                              padding: '5px 8px',
-                              border: '1px solid #e5e7eb',
-                              borderRadius: 5,
-                              fontSize: 13,
-                              background: '#fff',
-                              fontWeight: 500,
-                              color: '#374151',
-                              outline: 'none',
-                              boxShadow: '0 1px 2px rgba(60,120,180,0.02)',
-                              transition: 'border 0.2s',
-                            }}
-                          >
-                            <option value="">All {field}</option>
-                            <option value="Option 1">Option 1</option>
-                            <option value="Option 2">Option 2</option>
-                          </select>
-                        </th>
-                      ))}
-                    </tr>
-                    {/* Header Row with drag-and-drop */}
-                    <tr>
-                      {orderedFields.map((field, idx) => (
-                        <th
-                          key={field}
-                          draggable
-                          onDragStart={e => handleDragStart(e, idx)}
-                          onDrop={e => handleDrop(e, idx)}
-                          onDragOver={handleDragOver}
-                          style={{
-                            textAlign: 'center',
-                            padding: '10px 8px',
-                            fontWeight: 700,
-                            fontSize: 14,
-                            color: '#222',
-                            borderBottom: '2px solid #e5e7eb',
-                            background: '#f4f6fb',
-                            whiteSpace: 'nowrap',
-                            position: 'sticky',
-                            top: 0,
-                            zIndex: 2,
-                            cursor: 'grab',
-                            borderTop: 'none',
-                            borderRadius: 0,
-                            borderRight: idx !== orderedFields.length - 1 ? '1px solid #e5e7eb' : undefined,
-                            transition: 'background 0.18s',
-                            userSelect: 'none',
-                            width: colWidths[field],
-                            minWidth: 60,
-                            maxWidth: 400,
-                          }}
-                        >
-                          <span style={{ marginRight: 7 }}>{field}</span>
-                          <span
-                            onMouseDown={e => handleResizeStart(field, e)}
-                            style={{
-                              position: 'absolute',
-                              right: 0,
-                              top: 0,
-                              width: 8,
-                              height: '100%',
-                              cursor: 'col-resize',
-                              zIndex: 10,
-                              userSelect: 'none',
-                              background: 'transparent',
-                              display: 'inline-block',
-                            }}
-                          />
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {/* Placeholder for participant rows */}
-                    {participants.map((p, idx) => (
-                      <React.Fragment key={p.id}>
-                        <tr style={{ transition: 'background 0.14s', cursor: 'pointer', borderRadius: 8 }} onClick={() => setEditParticipant(p)}>
-                          {orderedFields.map((field, fidx) => {
-                            const dbKey = fieldMap[field] || field;
-                            let value = p[dbKey];
-                            if (field === 'Additional Participants') {
-                              value = Array.isArray(p.additional_participants) ? p.additional_participants.length : 0;
-                            } else {
-                              if (Array.isArray(value)) value = value.join(', ');
-                              if (typeof value === 'object' && value !== null) value = JSON.stringify(value);
-                            }
-                            // Center First Name and Last Name
-                            const isCenter = field === 'First Name' || field === 'Last Name';
-                            return (
-                              <td
-                                key={field + '-' + fidx}
-                                style={{
-                                  padding: '9px 8px',
-                                  fontSize: 13,
-                                  color: '#374151',
-                                  background: '#fff',
-                                  borderBottom: '1px solid #e5e7eb',
-                                  whiteSpace: 'nowrap',
-                                  maxWidth: colWidths[field],
-                                  minWidth: 60,
-                                  width: colWidths[field],
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  borderRadius: fidx === 0 ? '0 0 0 10px' : fidx === orderedFields.length - 1 ? '0 0 10px 0' : 0,
-                                  fontWeight: 500,
-                                  transition: 'background 0.14s',
-                                  borderRight: fidx !== orderedFields.length - 1 ? '1px solid #f1f1f1' : undefined,
-                                  textAlign: 'center',
-                                }}
-                              >
-                                {value || ''}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                        {/* Render additional participants as italicized rows */}
-                        {Array.isArray(p.additional_participants) && p.additional_participants.length > 0 && p.additional_participants.map((ap: any, apIdx: number) => (
-                          <tr key={p.id + '-ap-' + apIdx} style={{ fontStyle: 'italic', background: '#f8fafc' }} onClick={() => setEditAdditional({ mainId: p.id, index: apIdx, data: ap })}>
-                            {orderedFields.map((field, fidx) => {
-                              const dbKey = fieldMap[field] || field;
-                              let value = ap[dbKey];
-                              if (Array.isArray(value)) value = value.join(', ');
-                              if (typeof value === 'object' && value !== null) value = JSON.stringify(value);
-                              // Center First Name and Last Name
-                              const isCenter = field === 'First Name' || field === 'Last Name';
-                              return (
-                                <td
-                                  key={field + '-ap-' + fidx}
-                                  style={{
-                                    padding: '9px 8px',
-                                    fontSize: 13,
-                                    color: '#6366f1',
-                                    background: '#f8fafc',
-                                    borderBottom: '1px solid #e5e7eb',
-                                    whiteSpace: 'nowrap',
-                                    maxWidth: colWidths[field],
-                                    minWidth: 60,
-                                    width: colWidths[field],
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    borderRadius: fidx === 0 ? '0 0 0 10px' : fidx === orderedFields.length - 1 ? '0 0 10px 0' : 0,
-                                    fontWeight: 400,
-                                    fontStyle: 'italic',
-                                    borderRight: fidx !== orderedFields.length - 1 ? '1px solid #f1f1f1' : undefined,
-                                    textAlign: 'center',
-                                  }}
-                                >
-                                  {value || ''}
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        ))}
-                      </React.Fragment>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+              getRowClassName={(params) => params.row._rowType === 'additional' ? 'additional-participant-row' : ''}
+              getRowHeight={(params: any) => params.model._rowType === 'additional' ? 35 : 50}
+              sx={{
+                '& .additional-participant-row': {
+                  fontStyle: 'italic',
+                  background: '#f8fafc',
+                  color: '#6366f1',
+                  borderBottom: '1px solid #bdbdbd',
+                },
+                '& .MuiDataGrid-row': {
+                  cursor: 'pointer',
+                },
+                '& .MuiDataGrid-cell': {
+                  borderRight: '1px solid #f1f1f1',
+                  borderBottom: 'none',
+                  borderTop: 'none',
+                },
+                '& .MuiDataGrid-cell:first-of-type': {
+                  borderRight: 'none',
+                  borderTop: 'none',
+                  borderBottom: 'none',
+                },
+                '& .MuiDataGrid-columnHeaders': {
+                  borderBottom: '1px solid #e5e7eb',
+                },
+                '& .MuiDataGrid-columnHeader': {
+                  borderRight: '1px solid #e5e7eb',
+                },
+                '& .MuiDataGrid-virtualScrollerRenderZone': {
+                  borderBottom: 'none',
+                },
+                '& .MuiDataGrid-row:not(:last-child)': {
+                  borderBottom: 'none',
+                },
+                fontFamily: 'Inter, Segoe UI, Arial, sans-serif',
+                fontSize: 14,
+                color: '#222',
+                background: 'transparent',
+                width: '100%',
+                height: '100%',
+              }}
+            />
           </div>
         </div>
       </div>
-      {/* Settings Modal (UI only, with logic for custom fields, visibility, order, and views) */}
+      {showForm && account && !editParticipant && !editAdditional && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.25)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 32 }}>
+            <ParticipantForm
+              accountInstanceId={account.id}
+              isEdit={false}
+              onSuccess={handleFormSuccess}
+              onCancel={handleFormCancel}
+              tagList={tagList}
+              setTagList={setTagList}
+              customFields={customFields}
+            />
+          </div>
+        </div>
+      )}
+      {editParticipant && account && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.25)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 32 }}>
+            <ParticipantForm
+              accountInstanceId={account.id}
+              initialData={editParticipant}
+              isEdit={true}
+              onDelete={async () => {
+                console.log("Delete clicked for participant", editParticipant?.id);
+                if (!editParticipant?.id) return;
+                const { error } = await supabase.from('participants').delete().eq('id', editParticipant.id);
+                if (!error) {
+                  setEditParticipant(null);
+                  await fetchParticipants();
+                } else {
+                  console.error("Failed to delete participant:", error.message);
+                }
+              }}
+              onSuccess={() => { setEditParticipant(null); fetchParticipants(); }}
+              onCancel={() => setEditParticipant(null)}
+              tagList={tagList}
+              setTagList={setTagList}
+              customFields={customFields}
+            />
+          </div>
+        </div>
+      )}
+      {editAdditional && account && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.25)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 32 }}>
+            <ParticipantForm
+              accountInstanceId={account.id}
+              initialData={editAdditional.data}
+              isEdit={true}
+              isAdditional={true}
+              mainParticipantId={editAdditional.mainId}
+              additionalIndex={editAdditional.index}
+              onDelete={async () => {
+                console.log("Delete clicked for additional participant", editAdditional?.data?.id);
+                if (!editAdditional?.data?.id) return;
+                const { error } = await supabase.from('additional_participants').delete().eq('id', editAdditional.data.id);
+                if (!error) {
+                  setEditAdditional(null);
+                  await fetchParticipants();
+                } else {
+                  console.error("Failed to delete additional participant:", error.message);
+                }
+              }}
+              onSuccess={() => { setEditAdditional(null); fetchParticipants(); }}
+              onCancel={() => setEditAdditional(null)}
+              tagList={tagList}
+              setTagList={setTagList}
+              customFields={customFields}
+            />
+          </div>
+        </div>
+      )}
+      {showAddAdditional && account && mainParticipantId && (
+        <>
+          <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.25)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 32 }}>
+              <ParticipantForm
+                accountInstanceId={account.id}
+                isAdditional={true}
+                mainParticipantId={mainParticipantId}
+                onSuccess={async () => { setShowAddAdditional(false); await fetchParticipants(); }}
+                onCancel={() => setShowAddAdditional(false)}
+                tagList={tagList}
+                setTagList={setTagList}
+                customFields={customFields}
+              />
+            </div>
+          </div>
+        </>
+      )}
+      {/* Settings Modal */}
       {showSettings && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.18)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: '#fff', borderRadius: 14, boxShadow: '0 8px 32px rgba(0,0,0,0.13)', padding: 24, minWidth: 380, maxWidth: 440, width: '100%', position: 'relative', fontSize: 14 }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.18)', zIndex: 2100, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={handleSettingsClose}>
+          <div style={{ background: '#fff', borderRadius: 14, boxShadow: '0 8px 32px rgba(0,0,0,0.13)', padding: 24, minWidth: 380, maxWidth: 440, width: '100%', position: 'relative', fontSize: 14, zIndex: 2110 }} onClick={e => e.stopPropagation()}>
             <button onClick={handleSettingsClose} style={{ position: 'absolute', top: 12, right: 12, background: 'none', border: 'none', fontSize: 22, color: '#222', cursor: 'pointer', zIndex: 10 }}>&times;</button>
             {/* Tabs */}
             <div style={{ display: 'flex', gap: 0, marginBottom: 18, borderBottom: '1.5px solid #e5e7eb' }}>
@@ -1245,54 +1510,6 @@ export default function InvitePage() {
           </div>
         </div>
       )}
-      {showForm && account && !editParticipant && !editAdditional && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.25)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 32 }}>
-            <ParticipantForm
-              accountInstanceId={account.id}
-              onSuccess={handleFormSuccess}
-              onCancel={handleFormCancel}
-              tagList={tagList}
-              setTagList={setTagList}
-            />
-          </div>
-        </div>
-      )}
-      {editParticipant && account && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.25)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 32 }}>
-            <ParticipantForm
-              accountInstanceId={account.id}
-              initialData={editParticipant}
-              isEdit={true}
-              onDelete={async () => { setEditParticipant(null); fetchParticipants(); }}
-              onSuccess={() => { setEditParticipant(null); fetchParticipants(); }}
-              onCancel={() => setEditParticipant(null)}
-              tagList={tagList}
-              setTagList={setTagList}
-            />
-          </div>
-        </div>
-      )}
-      {editAdditional && account && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.25)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 32 }}>
-            <ParticipantForm
-              accountInstanceId={account.id}
-              initialData={editAdditional.data}
-              isEdit={true}
-              isAdditional={true}
-              mainParticipantId={editAdditional.mainId}
-              additionalIndex={editAdditional.index}
-              onDelete={async () => { setEditAdditional(null); fetchParticipants(); }}
-              onSuccess={() => { setEditAdditional(null); fetchParticipants(); }}
-              onCancel={() => setEditAdditional(null)}
-              tagList={tagList}
-              setTagList={setTagList}
-            />
-          </div>
-        </div>
-      )}
       <style>{`
         .horizontal-scroll-container::-webkit-scrollbar {
           height: 12px;
@@ -1383,20 +1600,6 @@ function CustomFieldListItem({ field, onDelete, onEdit }: { field: CustomField, 
             onClick={() => setOptionsArr(arr => [...arr, ''])}
             style={{ marginTop: 4, color: '#6366f1', background: 'none', border: '1px solid #6366f1', borderRadius: 4, cursor: 'pointer', fontSize: 13, padding: '2px 10px' }}
           >+ Add Option</button>
-          <div style={{ borderTop: '1px solid #e5e7eb', margin: '16px 0 0 0', width: '100%', height: 1 }} />
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginTop: 10 }}>
-            <button
-              onClick={() => { setEditing(false); onDelete(field.id); }}
-              style={{ color: '#db2777', background: 'none', border: '1px solid #db2777', borderRadius: 4, cursor: 'pointer', fontSize: 13, padding: '2px 16px', fontWeight: 600 }}
-            >Delete</button>
-            <button
-              onClick={() => {
-                onEdit(field.id, label, type, type === 'dropdown' ? optionsArr.join(',') : '');
-                setEditing(false);
-              }}
-              style={{ color: '#fff', background: 'linear-gradient(90deg, #6366f1 0%, #db2777 100%)', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 13, padding: '2px 18px', fontWeight: 600 }}
-            >Save</button>
-          </div>
         </div>
       )}
       {type !== 'dropdown' && (

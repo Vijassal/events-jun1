@@ -1022,8 +1022,19 @@ export default function PlanningPage() {
   }
 
   return (
-    <div className="w-full overflow-x-auto p-6">
-      <h2 style={{ fontSize: 22, fontWeight: 700, color: '#7c3aed', marginBottom: 8, letterSpacing: 0.2 }}>Plan</h2>
+    <div
+      style={{
+        width: '100%',
+        marginTop: 32,
+        marginBottom: 32,
+        paddingLeft: 32,
+        paddingRight: 32,
+        boxSizing: 'border-box',
+      }}
+    >
+      <h2 style={{ fontSize: 22, fontWeight: 700, color: '#7c3aed', marginTop: 0, marginBottom: 8, letterSpacing: 0.2 }}>
+        Plan
+      </h2>
       <div className="flex gap-6 items-start">
         <div className="flex-1">
           <div className="flex gap-2 mb-6 border-b">

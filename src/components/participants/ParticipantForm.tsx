@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 
 interface AdditionalParticipant {
+  id?: string;
   first_name: string;
   last_name: string;
   email: string;
@@ -12,8 +13,8 @@ interface AdditionalParticipant {
   tags: string[];
   events: string[];
   sub_events: string[];
-  isChild?: boolean;
-  childAge?: string;
+  is_child?: boolean;
+  child_age?: string;
 }
 
 const mockEvents = ["Wedding Day", "Reception", "Rehearsal Dinner"];
@@ -37,8 +38,8 @@ const initialForm = {
   tags: [] as string[],
   sub_events: [] as string[],
   additional_participants: [] as AdditionalParticipant[],
-  isChild: false,
-  childAge: '',
+  is_child: false,
+  child_age: '',
 };
 
 function MultiSelectBubbles({ options, value, onChange, placeholder, color }: { options: string[]; value: string[]; onChange: (v: string[]) => void; placeholder: string; color: string }) {
@@ -67,8 +68,29 @@ function MultiSelectBubbles({ options, value, onChange, placeholder, color }: { 
   );
 }
 
-export default function ParticipantForm({ accountInstanceId, onSuccess, onCancel, tagList, setTagList, initialData, isEdit, isAdditional, mainParticipantId, additionalIndex, onDelete }: { accountInstanceId: string; onSuccess?: () => void; onCancel?: () => void; tagList: string[]; setTagList: (tags: string[]) => void; initialData?: any; isEdit?: boolean; isAdditional?: boolean; mainParticipantId?: string; additionalIndex?: number; onDelete?: () => void; }) {
-  const [form, setForm] = useState<typeof initialForm>(initialData ? { ...initialForm, ...initialData } : initialForm);
+// Utility to strip frontend-only fields before DB operations
+function stripFrontendFields(obj: any) {
+  const { _rowType, _apIndex, isExpanded, ...dbFields } = obj;
+  return dbFields;
+}
+
+// Utility to check for empty object
+function isEmptyObject(obj: any) {
+  return obj && typeof obj === 'object' && Object.keys(obj).length === 0 && obj.constructor === Object;
+}
+
+// Map form fields to DB columns for main and additional participants
+const participantFieldMap = [
+  'first_name', 'last_name', 'email', 'phone', 'family', 'relationship', 'invited_by',
+  'tags', 'events', 'sub_events', 'custom_fields', 'account_instance_id'
+];
+const additionalFieldMap = [
+  'first_name', 'last_name', 'email', 'phone', 'family', 'relationship', 'invited_by',
+  'tags', 'events', 'sub_events', 'custom_fields', 'account_instance_id', 'main_participant_id', 'is_child', 'child_age'
+];
+
+export default function ParticipantForm({ accountInstanceId, onSuccess, onCancel, tagList, setTagList, initialData, isEdit, isAdditional, mainParticipantId, additionalIndex, onDelete, customFields = [] }: { accountInstanceId: string; onSuccess?: () => void; onCancel?: () => void; tagList: string[]; setTagList: (tags: string[]) => void; initialData?: any; isEdit?: boolean; isAdditional?: boolean; mainParticipantId?: string; additionalIndex?: number; onDelete?: () => void; customFields?: any[]; }) {
+  const [form, setForm] = useState<typeof initialForm>(initialData ? { ...initialForm, ...initialData, is_child: initialData.is_child ?? false, child_age: initialData.child_age ?? '' } : initialForm);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAdditionalModal, setShowAdditionalModal] = useState(false);
@@ -77,10 +99,33 @@ export default function ParticipantForm({ accountInstanceId, onSuccess, onCancel
   const [additionalChildAge, setAdditionalChildAge] = useState('');
   const [saved, setSaved] = useState(false);
   const [newTag, setNewTag] = useState('');
+  const [customFieldValues, setCustomFieldValues] = useState<{ [key: string]: any }>(initialData?.custom_fields || {});
+  const [dbAdditionalParticipants, setDbAdditionalParticipants] = useState<AdditionalParticipant[]>([]);
 
   useEffect(() => {
-    if (initialData) setForm({ ...initialForm, ...initialData });
+    if (initialData) {
+      setForm({
+        ...initialForm,
+        ...initialData,
+        is_child: initialData.is_child ?? false,
+        child_age: initialData.child_age ?? '',
+      });
+      setCustomFieldValues(initialData.custom_fields || {});
+    }
   }, [initialData]);
+
+  useEffect(() => {
+    async function fetchAdditionalParticipants() {
+      if (!isAdditional && initialData?.id) {
+        const { data, error } = await supabase
+          .from('additional_participants')
+          .select('*')
+          .eq('main_participant_id', initialData.id);
+        if (!error && data) setDbAdditionalParticipants(data);
+      }
+    }
+    fetchAdditionalParticipants();
+  }, [initialData, isAdditional]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -105,15 +150,56 @@ export default function ParticipantForm({ accountInstanceId, onSuccess, onCancel
   const handleAdditionalMultiChange = (name: string, value: string[]) => {
     setAdditionalForm({ ...additionalForm, [name]: value });
   };
-  const handleAdditionalSubmit = (e: React.FormEvent) => {
+  const handleAdditionalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!additionalForm.first_name || !additionalForm.last_name) return;
-    const newAp = { ...additionalForm, isChild: additionalIsChild, childAge: additionalIsChild ? additionalChildAge : undefined };
-    setForm({ ...form, additional_participants: [...form.additional_participants, newAp] });
-    setShowAdditionalModal(false);
+    if (!initialData?.id) return; // main participant must be saved first
+    const newAp = {
+      ...additionalForm,
+      is_child: additionalIsChild,
+      child_age: additionalIsChild ? additionalChildAge : undefined,
+      main_participant_id: initialData.id,
+      account_instance_id: accountInstanceId,
+    };
+    const { error } = await supabase.from('additional_participants').insert([newAp]);
+    setLoading(false);
+    if (error && error.message) {
+      console.error('Insert additional_participants error:', error);
+      setError(error.message);
+    } else if (error && typeof error === 'object' && Object.keys(error).length > 0) {
+      console.error('Insert additional_participants error (unknown object):', error);
+      setError(typeof error === 'string' ? error : 'Unknown error');
+    } else {
+      setSaved(true);
+      setTimeout(async () => {
+        setSaved(false);
+        setAdditionalForm({ ...initialAdditional });
+        setAdditionalIsChild(false);
+        setAdditionalChildAge('');
+        setShowAdditionalModal(false);
+        // Refresh list
+        const { data } = await supabase
+          .from('additional_participants')
+          .select('*')
+          .eq('main_participant_id', initialData.id);
+        setDbAdditionalParticipants(data || []);
+        if (onSuccess) onSuccess();
+      }, 2000);
+    }
   };
-  const handleRemoveAdditional = (idx: number) => {
-    setForm({ ...form, additional_participants: form.additional_participants.filter((_, i) => i !== idx) });
+  const handleRemoveAdditional = async (idx: number) => {
+    const ap = dbAdditionalParticipants[idx];
+    if (!ap?.id) return;
+    // Delete from additional_participants table by id
+    const { error } = await supabase.from('additional_participants').delete().eq('id', ap.id);
+    if (!error) {
+      // Refresh list after deletion
+      const { data } = await supabase
+        .from('additional_participants')
+        .select('*')
+        .eq('main_participant_id', initialData.id);
+      setDbAdditionalParticipants(data || []);
+    }
   };
 
   const handleAddTag = () => {
@@ -123,32 +209,105 @@ export default function ParticipantForm({ accountInstanceId, onSuccess, onCancel
     setNewTag('');
   };
 
+  // Render custom fields
+  const renderCustomFields = () => customFields.map((field: any) => {
+    if (field.type === 'dropdown') {
+      return (
+        <select
+          key={field.id}
+          value={customFieldValues[field.label] || ''}
+          onChange={e => setCustomFieldValues(v => ({ ...v, [field.label]: e.target.value }))}
+          style={{ padding: '5px 8px', borderRadius: 4, border: '1px solid #e5e7eb', fontSize: 13, marginBottom: 8 }}
+        >
+          <option value="">Select {field.label}</option>
+          {(field.options || []).map((opt: string) => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+      );
+    }
+    if (field.type === 'checkbox') {
+      return (
+        <div key={field.id} style={{ marginBottom: 8 }}>
+          <input
+            type="checkbox"
+            checked={!!customFieldValues[field.label]}
+            onChange={e => setCustomFieldValues(v => ({ ...v, [field.label]: e.target.checked }))}
+            id={`cf_${field.id}`}
+            style={{ width: 16, height: 16 }}
+          />
+          <label htmlFor={`cf_${field.id}`} style={{ marginLeft: 8 }}>{field.label}</label>
+        </div>
+      );
+    }
+    return (
+      <input
+        key={field.id}
+        type="text"
+        value={customFieldValues[field.label] || ''}
+        onChange={e => setCustomFieldValues(v => ({ ...v, [field.label]: e.target.value }))}
+        placeholder={field.label}
+        style={{ padding: '5px 8px', borderRadius: 4, border: '1px solid #e5e7eb', fontSize: 13, marginBottom: 8 }}
+      />
+    );
+  });
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    // Map camelCase to snake_case for DB columns
-    const participantData = { ...form, account_instance_id: accountInstanceId };
-    const { isChild, childAge, ...rest } = participantData;
-    const participantDataToInsert = {
-      ...rest,
-      is_child: isChild,
-      child_age: childAge ? Number(childAge) : null,
-    };
-    console.log('Attempting to insert participant:', participantDataToInsert);
+    if (isAdditional) {
+      // Insert into additional_participants table
+      const additionalData = stripFrontendFields({ ...form, main_participant_id: mainParticipantId, account_instance_id: accountInstanceId, ...(customFieldValues && Object.keys(customFieldValues).length > 0 ? { custom_fields: customFieldValues } : {}) });
+      const { is_child, child_age, ...apRest } = additionalData;
+      const additionalDataToInsert = additionalFieldMap.reduce((acc, key) => {
+        if (apRest[key] !== undefined) acc[key] = apRest[key];
+        return acc;
+      }, {} as any);
+      additionalDataToInsert.is_child = is_child;
+      additionalDataToInsert.child_age = child_age ? Number(child_age) : null;
+      const { error } = await supabase.from('additional_participants').insert([additionalDataToInsert]);
+      setLoading(false);
+      if (error && error.message) {
+        console.error('Insert additional_participants error:', error);
+        setError(error.message);
+      } else if (error && typeof error === 'object' && Object.keys(error).length > 0) {
+        console.error('Insert additional_participants error (unknown object):', error);
+        setError(typeof error === 'string' ? error : 'Unknown error');
+      } else {
+        setSaved(true);
+        setTimeout(() => {
+          setSaved(false);
+          setForm(initialForm);
+          setCustomFieldValues({});
+          if (onSuccess) onSuccess();
+        }, 2000);
+      }
+      return;
+    }
+    // Main participant insert
+    const participantData = stripFrontendFields({ ...form, account_instance_id: accountInstanceId, ...(customFieldValues && Object.keys(customFieldValues).length > 0 ? { custom_fields: customFieldValues } : {}) });
+    const { is_child, child_age, ...rest } = participantData;
+    const participantDataToInsert = participantFieldMap.reduce((acc, key) => {
+      if (rest[key] !== undefined) acc[key] = rest[key];
+      return acc;
+    }, {} as any);
+    participantDataToInsert.is_child = is_child;
+    participantDataToInsert.child_age = child_age ? Number(child_age) : null;
     const { data, error } = await supabase.from('participants').insert([participantDataToInsert]);
     setLoading(false);
-    if (error) {
-      setError(error.message || 'Unknown error');
-      console.error('Participant insert error:', error);
-      console.error('Full Supabase error:', JSON.stringify(error, null, 2));
-      console.error('Participant data sent:', JSON.stringify(participantDataToInsert, null, 2));
+    if (error && error.message) {
+      console.error('Insert participants error:', error);
+      setError(error.message);
+    } else if (error && typeof error === 'object' && Object.keys(error).length > 0) {
+      console.error('Insert participants error (unknown object):', error);
+      setError(typeof error === 'string' ? error : 'Unknown error');
     } else {
-      console.log('Participant insert success, data:', data);
       setSaved(true);
       setTimeout(() => {
         setSaved(false);
         setForm(initialForm);
+        setCustomFieldValues({});
         if (onSuccess) onSuccess();
       }, 2000);
     }
@@ -158,37 +317,47 @@ export default function ParticipantForm({ accountInstanceId, onSuccess, onCancel
     e.preventDefault();
     setLoading(true);
     setError(null);
-    if (isAdditional && mainParticipantId !== undefined && typeof additionalIndex === 'number') {
-      // Update additional participant in parent
-      const { data: participant, error: fetchErr } = await supabase
-        .from('participants')
-        .select('additional_participants')
-        .eq('id', mainParticipantId)
-        .single();
-      if (fetchErr) {
-        setError('Could not fetch participant.');
-        setLoading(false);
-        return;
-      }
-      const updated = Array.isArray(participant.additional_participants) ? [...participant.additional_participants] : [];
-      updated[additionalIndex] = form;
-      const { error: updateErr } = await supabase
-        .from('participants')
-        .update({ additional_participants: updated })
-        .eq('id', mainParticipantId);
+    if (isAdditional && initialData?.id) {
+      // Update additional_participants row
+      const apUpdateData = stripFrontendFields({ ...form, custom_fields: customFieldValues });
+      const { is_child, child_age, ...apUpdRest } = apUpdateData;
+      const additionalUpdateData = additionalFieldMap.reduce((acc, key) => {
+        if (apUpdRest[key] !== undefined) acc[key] = apUpdRest[key];
+        return acc;
+      }, {} as any);
+      additionalUpdateData.is_child = is_child;
+      additionalUpdateData.child_age = child_age ? Number(child_age) : null;
+      console.log('Updating ID:', initialData.id); // Debug log
+      const { error } = await supabase.from('additional_participants').update(additionalUpdateData).eq('id', initialData.id);
       setLoading(false);
-      if (updateErr) {
-        setError('Could not update additional participant.');
+      if (error && error.message) {
+        console.error('Update additional_participants error:', error);
+        setError(error.message);
+      } else if (error && typeof error === 'object' && Object.keys(error).length > 0) {
+        console.error('Update additional_participants error (unknown object):', error);
+        setError(typeof error === 'string' ? error : 'Unknown error');
       } else {
         if (onSuccess) onSuccess();
       }
       return;
     }
     // Main participant update
-    const { error } = await supabase.from('participants').update(form).eq('id', initialData.id);
+    const updateData = stripFrontendFields({ ...form, custom_fields: customFieldValues });
+    const { is_child, child_age, ...updRest } = updateData;
+    const participantUpdateData = participantFieldMap.reduce((acc, key) => {
+      if (updRest[key] !== undefined) acc[key] = updRest[key];
+      return acc;
+    }, {} as any);
+    participantUpdateData.is_child = is_child;
+    participantUpdateData.child_age = child_age ? Number(child_age) : null;
+    const { error } = await supabase.from('participants').update(participantUpdateData).eq('id', initialData.id);
     setLoading(false);
-    if (error) {
+    if (error && error.message) {
+      console.error('Update participants error:', error);
       setError(error.message);
+    } else if (error && typeof error === 'object' && Object.keys(error).length > 0) {
+      console.error('Update participants error (unknown object):', error);
+      setError(typeof error === 'string' ? error : 'Unknown error');
     } else {
       if (onSuccess) onSuccess();
     }
@@ -197,39 +366,56 @@ export default function ParticipantForm({ accountInstanceId, onSuccess, onCancel
   const handleDelete = async () => {
     setLoading(true);
     setError(null);
-    if (isAdditional && mainParticipantId !== undefined && typeof additionalIndex === 'number') {
-      // Delete additional participant from parent
-      const { data: participant, error: fetchErr } = await supabase
+    if (!isAdditional && initialData?.id) {
+      // Delete all additional participants for this main participant
+      const { error: addErr } = await supabase
+        .from('additional_participants')
+        .delete()
+        .eq('main_participant_id', initialData.id);
+      // Delete the main participant
+      const { error: mainErr } = await supabase
         .from('participants')
-        .select('additional_participants')
-        .eq('id', mainParticipantId)
-        .single();
-      if (fetchErr) {
-        setError('Could not fetch participant.');
-        setLoading(false);
-        return;
-      }
-      const updated = Array.isArray(participant.additional_participants) ? [...participant.additional_participants] : [];
-      updated.splice(additionalIndex, 1);
-      const { error: updateErr } = await supabase
-        .from('participants')
-        .update({ additional_participants: updated })
-        .eq('id', mainParticipantId);
+        .delete()
+        .eq('id', initialData.id);
       setLoading(false);
-      if (updateErr) {
-        setError('Could not delete additional participant.');
+      if (mainErr && mainErr.message) {
+        console.error('Main participant delete error:', mainErr);
+        setError(mainErr.message);
+      } else if (mainErr && typeof mainErr === 'object' && Object.keys(mainErr).length > 0) {
+        console.error('Main participant delete error (unknown object):', mainErr);
+        setError('Could not delete participant (unknown error).');
+      } else if (addErr && addErr.message) {
+        console.error('Additional participants delete error:', addErr);
+        setError(addErr.message);
+        if (onDelete) onDelete();
+      } else if (addErr && typeof addErr === 'object' && Object.keys(addErr).length > 0) {
+        console.error('Additional participants delete error (unknown object):', addErr);
+        setError('Participant deleted, but some additional members may not have been.');
+        if (onDelete) onDelete();
       } else {
         if (onDelete) onDelete();
       }
       return;
     }
-    // Main participant delete
-    const { error } = await supabase.from('participants').delete().eq('id', initialData.id);
-    setLoading(false);
-    if (error) {
-      setError(error.message);
-    } else {
-      if (onDelete) onDelete();
+    if (isAdditional && initialData?.id) {
+      // Delete only this additional participant
+      const { error } = await supabase
+        .from('additional_participants')
+        .delete()
+        .eq('id', initialData.id);
+      setLoading(false);
+      if (error && error.message) {
+        console.error('Additional participant delete error:', error);
+        setError(error.message);
+      } else if (error && typeof error === 'object' && Object.keys(error).length > 0) {
+        // Non-empty object, treat as unknown error
+        console.error('Additional participant delete error (unknown object):', error);
+        setError('Could not delete additional participant (unknown error).');
+      } else {
+        // error is null, undefined, or empty object: treat as success
+        if (onDelete) onDelete();
+      }
+      return;
     }
   };
 
@@ -275,8 +461,8 @@ export default function ParticipantForm({ accountInstanceId, onSuccess, onCancel
               </button>
             </div>
             <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {form.additional_participants.length === 0 && <div style={{ color: '#a1a1aa', fontSize: 12 }}>No additional participants yet.</div>}
-              {form.additional_participants.map((ap, idx) => (
+              {dbAdditionalParticipants.length === 0 && <div style={{ color: '#a1a1aa', fontSize: 12 }}>No additional participants yet.</div>}
+              {dbAdditionalParticipants.map((ap, idx) => (
                 <div key={idx} style={{ background: '#f8fafc', borderRadius: 6, padding: 8, boxShadow: '0 1px 2px rgba(0,0,0,0.02)', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
                   <span style={{ flex: 1 }}>{ap.first_name} {ap.last_name} {ap.email && `(${ap.email})`}</span>
                   <button type="button" onClick={() => handleRemoveAdditional(idx)} style={{ background: '#fff', color: '#db2777', fontWeight: 500, border: '1px solid #e5e7eb', borderRadius: 4, padding: '2px 8px', fontSize: 12, cursor: 'pointer' }}>Remove</button>
@@ -295,7 +481,7 @@ export default function ParticipantForm({ accountInstanceId, onSuccess, onCancel
         {isEdit && !isAdditional && (
           <button type="button" onClick={handleDelete} style={{ background: '#fff', color: '#db2777', fontWeight: 500, border: '1px solid #e5e7eb', borderRadius: 4, padding: '7px 18px', fontSize: 14, cursor: 'pointer', marginTop: 8 }}>Delete Participant</button>
         )}
-        {isEdit && !isAdditional && form.additional_participants && form.additional_participants.length > 0 && (
+        {isEdit && !isAdditional && dbAdditionalParticipants && dbAdditionalParticipants.length > 0 && (
           <div style={{ color: '#db2777', fontSize: 13, marginTop: 8 }}>
             Warning: Deleting this participant will also remove all additional participants.
           </div>
@@ -305,27 +491,28 @@ export default function ParticipantForm({ accountInstanceId, onSuccess, onCancel
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
             <input
               type="checkbox"
-              checked={!!form.isChild}
-              onChange={e => setForm(f => ({ ...f, isChild: e.target.checked, childAge: e.target.checked ? f.childAge : '' }))}
+              checked={!!form.is_child}
+              onChange={e => setForm(f => ({ ...f, is_child: e.target.checked, child_age: e.target.checked ? f.child_age : '' }))}
               id="additionalIsChildCheckbox"
               style={{ width: 16, height: 16 }}
             />
             <label htmlFor="additionalIsChildCheckbox" style={{ fontWeight: 500, fontSize: 13, color: '#374151' }}>Child?</label>
-            {form.isChild && (
-              <>
-                <span style={{ marginLeft: 8, fontSize: 13, color: '#374151' }}>Child Age:</span>
-                <input
-                  type="number"
-                  min={0}
-                  required
-                  value={form.childAge || ''}
-                  onChange={e => setForm(f => ({ ...f, childAge: e.target.value }))}
-                  style={{ padding: '4px 7px', borderRadius: 4, border: '1px solid #e5e7eb', fontSize: 13, width: 80, marginLeft: 4 }}
-                />
-              </>
-            )}
           </div>
         )}
+        {form.is_child && (
+          <>
+            <span style={{ marginLeft: 8, fontSize: 13, color: '#374151' }}>Child Age:</span>
+            <input
+              type="number"
+              min={0}
+              required
+              value={form.child_age || ''}
+              onChange={e => setForm(f => ({ ...f, child_age: e.target.value }))}
+              style={{ padding: '4px 7px', borderRadius: 4, border: '1px solid #e5e7eb', fontSize: 13, width: 80, marginLeft: 4 }}
+            />
+          </>
+        )}
+        {renderCustomFields()}
       </form>
       {/* Modal for additional participant */}
       {showAdditionalModal && (
@@ -354,20 +541,20 @@ export default function ParticipantForm({ accountInstanceId, onSuccess, onCancel
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <input type="checkbox" checked={additionalIsChild} onChange={e => setAdditionalIsChild(e.target.checked)} id="additionalIsChildCheckbox" style={{ width: 16, height: 16 }} />
                 <label htmlFor="additionalIsChildCheckbox" style={{ fontWeight: 500, fontSize: 13, color: '#374151' }}>Child?</label>
-                {additionalIsChild && (
-                  <>
-                    <span style={{ marginLeft: 8, fontSize: 13, color: '#374151' }}>Child Age:</span>
-                    <input
-                      type="number"
-                      min={0}
-                      required
-                      value={additionalChildAge}
-                      onChange={e => setAdditionalChildAge(e.target.value)}
-                      style={{ padding: '4px 7px', borderRadius: 4, border: '1px solid #e5e7eb', fontSize: 13, width: 80, marginLeft: 4 }}
-                    />
-                  </>
-                )}
               </div>
+              {additionalIsChild && (
+                <>
+                  <span style={{ marginLeft: 8, fontSize: 13, color: '#374151' }}>Child Age:</span>
+                  <input
+                    type="number"
+                    min={0}
+                    required
+                    value={additionalChildAge}
+                    onChange={e => setAdditionalChildAge(e.target.value)}
+                    style={{ padding: '4px 7px', borderRadius: 4, border: '1px solid #e5e7eb', fontSize: 13, width: 80, marginLeft: 4 }}
+                  />
+                </>
+              )}
               <button type="submit" disabled={!additionalForm.first_name || !additionalForm.last_name || !mainFilled} title={!mainFilled ? 'Please fill in participant information first.' : (!additionalForm.first_name || !additionalForm.last_name ? 'Please fill in additional participant name.' : '')} style={{ background: '#f4f4f5', color: '#222', fontWeight: 500, border: '1px solid #e5e7eb', borderRadius: 4, padding: '7px 18px', fontSize: 14, cursor: !additionalForm.first_name || !additionalForm.last_name || !mainFilled ? 'not-allowed' : 'pointer', marginTop: 8 }}>Add Participant</button>
             </form>
           </div>
