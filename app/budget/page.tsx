@@ -155,6 +155,24 @@ function BudgetPageInner() {
     fetchAccountInstance();
   }, []);
 
+  // Fetch settings currency when accountInstanceId changes
+  useEffect(() => {
+    async function fetchSettingsCurrency() {
+      if (!accountInstanceId) return;
+      const { data, error } = await supabase
+        .from('settings')
+        .select('currency')
+        .eq('account_instance_id', accountInstanceId)
+        .single();
+      if (data && data.currency) {
+        setSettingsCurrency(data.currency);
+      } else {
+        setSettingsCurrency('USD');
+      }
+    }
+    fetchSettingsCurrency();
+  }, [accountInstanceId]);
+
   // Use accountInstanceId for all budget queries
   const fetchBudgets = async () => {
     if (!accountInstanceId) {
@@ -556,24 +574,6 @@ function BudgetPageInner() {
     if (accountInstanceId) {
       fetchBudgets();
     }
-  }, [accountInstanceId]);
-
-  // Fetch settings currency when accountInstanceId changes
-  useEffect(() => {
-    async function fetchSettingsCurrency() {
-      if (!accountInstanceId) return;
-      const { data, error } = await supabase
-        .from('settings')
-        .select('currency')
-        .eq('account_instance_id', accountInstanceId)
-        .single();
-      if (data && data.currency) {
-        setSettingsCurrency(data.currency);
-      } else {
-        setSettingsCurrency('USD');
-      }
-    }
-    fetchSettingsCurrency();
   }, [accountInstanceId]);
 
   // Show loading or error if fetching account instance

@@ -161,11 +161,9 @@ export default function VendorsPage() {
   };
 
   // Track changes to the inline edit row
-  const handleInlineEditChange = (params: any) => {
-    if (inlineEditRowId === params.id) {
-      setInlineEditRow((prev) => ({ ...prev, [params.field]: params.value }));
-    }
-    return params.value;
+  const handleInlineEditChange = (updatedRow: any) => {
+    setInlineEditRow(updatedRow);
+    return updatedRow;
   };
 
   // Handlers to persist column changes
@@ -391,6 +389,7 @@ export default function VendorsPage() {
           columns={columnsWithHandler}
           getRowId={(row) => row.id}
           initialState={columnState ? { ...columnState, pagination: { paginationModel: { pageSize: 5, page: 0 } } } : { pagination: { paginationModel: { pageSize: 5, page: 0 } } }}
+          pageSizeOptions={[5, 10, 25, 50, 100]}
           disableRowSelectionOnClick
           onColumnOrderChange={handleColumnOrderChange}
           onColumnVisibilityModelChange={handleColumnVisibilityModelChange}

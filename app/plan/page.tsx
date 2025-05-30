@@ -764,12 +764,45 @@ export default function PlanningPage() {
   // Fetch events, sub-events, and vendors on mount
   useEffect(() => {
     async function fetchAll() {
-      const { data: eventsData } = await supabase.from('events').select('*').order('date', { ascending: true });
+      // Get the current session
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) return;
+      // Try to find an instance where the user is the owner
+      let { data: ownedInstances } = await supabase
+        .from('account_instances')
+        .select('id')
+        .eq('owner_user_id', userId)
+        .limit(1);
+      let accountInstanceId = null;
+      if (ownedInstances && ownedInstances.length > 0) {
+        accountInstanceId = ownedInstances[0].id;
+        console.log('[Plan] Using owned accountInstanceId:', accountInstanceId);
+      } else {
+        // Otherwise, find an instance where the user is a member
+        let { data: memberships } = await supabase
+          .from('account_instance_members')
+          .select('account_instance_id')
+          .eq('user_id', userId)
+          .limit(1);
+        if (memberships && memberships.length > 0) {
+          accountInstanceId = memberships[0].account_instance_id;
+          console.log('[Plan] Using member accountInstanceId:', accountInstanceId);
+        }
+      }
+      if (!accountInstanceId) {
+        console.log('[Plan] No accountInstanceId found for user', userId);
+        setEvents([]);
+        setSubEvents([]);
+        setVendors([]);
+        return;
+      }
+      // Fetch only data for the user's instance
+      const { data: eventsData } = await supabase.from('events').select('*').eq('account_instance_id', accountInstanceId).order('date', { ascending: true });
       if (eventsData) setEvents(eventsData);
-      const { data: subEventsData } = await supabase.from('sub_events').select('*');
+      const { data: subEventsData } = await supabase.from('sub_events').select('*').eq('account_instance_id', accountInstanceId);
       if (subEventsData) setSubEvents(subEventsData.map(se => ({ ...se, parentEventId: se.parent_event_id })));
-      // Vendors already fetched elsewhere, but ensure it's up to date
-      const { data: vendorsData } = await supabase.from('vendors').select('*').order('date', { ascending: true });
+      const { data: vendorsData } = await supabase.from('vendors').select('*').eq('account_instance_id', accountInstanceId).order('date', { ascending: true });
       if (vendorsData) setVendors(vendorsData);
     }
     fetchAll();
@@ -966,6 +999,9 @@ export default function PlanningPage() {
               <div className="sticky top-0 bg-white z-10 font-bold text-center border-b py-2 border-l" style={{ borderColor: '#e5e7eb' }}>{date}</div>
               {/* Blocks for this date */}
               <div style={{ position: 'relative', height: 48 * 48, zIndex: 2, marginTop: 0 }}>
+                {getBlocksForDate(date).length === 0 && (
+                  <div className="text-gray-400 text-center py-8">No itinerary items for this day.</div>
+                )}
                 {getBlocksForDate(date).map((item, i, arr) => {
                   const { blockStart, blockHeight } = getBlockPosition(item);
                   const isEvent = item.blockType === 'event';
