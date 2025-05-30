@@ -294,6 +294,56 @@ function isColorDark(hex: string) {
   return brightness < 128;
 }
 
+// SectionFilter: props = { title, items, selectedIds, onToggle, colors, onColorChange, filterSearch, showMoreLimit }
+// Handles show more/less, scrollable list, and flex row for each item.
+function SectionFilter({ title, items, selectedIds, onToggle, colors, onColorChange, filterSearch, showMoreLimit }: any) {
+  const [showMore, setShowMore] = useState(false);
+
+  const filteredItems = items.filter((item: any) => item.name.toLowerCase().includes(filterSearch.toLowerCase()));
+  const visibleItems = showMore ? filteredItems : filteredItems.slice(0, showMoreLimit);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="font-bold text-base mb-1">{title}</div>
+      <div className="flex flex-col gap-1">
+        {visibleItems.map((item: any) => (
+          <div key={item.id} className="flex items-center justify-between group px-1 py-1 rounded hover:bg-gray-100 transition-colors">
+            <label className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={selectedIds.includes(item.id)}
+                onChange={e => onToggle(item.id)}
+              />
+              <span
+                className="truncate text-sm"
+                style={{ maxWidth: 140 }}
+                title={item.name}
+              >
+                {item.name}
+              </span>
+            </label>
+            <input
+              type="color"
+              value={colors[item.id] || '#cccccc'}
+              onChange={e => onColorChange(item.id, e.target.value)}
+              style={{ width: 24, height: 24, border: 'none', background: 'none', cursor: 'pointer', borderRadius: 4 }}
+              title="Pick color"
+            />
+          </div>
+        ))}
+      </div>
+      {filteredItems.length > showMoreLimit && (
+        <button
+          className="text-blue-500 text-xs mt-1 self-start"
+          onClick={() => setShowMore(!showMore)}
+        >
+          {showMore ? 'Show less' : 'Show more'}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function PlanningPage() {
   const [tab, setTab] = useState("agenda");
   const today = getToday();
@@ -308,7 +358,10 @@ export default function PlanningPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [agendaViewType, setAgendaViewType] = useState<'event' | 'vendor' | 'both'>('event');
   const [vendors, setVendors] = useState<VendorData[]>([]);
-  const [agendaStartTime, setAgendaStartTime] = useState(0); // in minutes, default 0 (12:00 AM)
+  const [agendaStartTime, setAgendaStartTime] = useState(() => {
+    const stored = localStorage.getItem('agendaStartTime');
+    return stored !== null ? Number(stored) : 0;
+  });
   const [events, setEvents] = useState<EventData[]>([]);
   const [subEvents, setSubEvents] = useState<SubEventData[]>([]);
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>(
@@ -363,6 +416,15 @@ export default function PlanningPage() {
   });
   const [hoveredBlockId, setHoveredBlockId] = useState<string | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number, y: number } | null>(null);
+  const [filterSearch, setFilterSearch] = useState("");
+  const [agendaViewDate, setAgendaViewDate] = useState(() => {
+    const stored = localStorage.getItem('agendaViewDate');
+    return stored || getTodayDateString();
+  });
+  const [columnsToShow, setColumnsToShow] = useState(() => {
+    const stored = localStorage.getItem('columnsToShow');
+    return stored ? Number(stored) : 1;
+  });
 
   const months = [
     "January", "February", "March", "April", "May", "June",
@@ -820,7 +882,7 @@ export default function PlanningPage() {
     const uniqueDates = Array.from(new Set(agendaData.map(item => item.date))).filter(Boolean).sort();
     // If no items, fallback to today
     const todayStr = getTodayDateString();
-    const dateColumns = uniqueDates.length > 0 ? uniqueDates : [todayStr];
+    const dateColumns = Array.from({ length: columnsToShow }, (_, i) => addDays(agendaViewDate, i));
 
     // Helper: get blocks for a date
     function getBlocksForDate(date: string) {
@@ -849,14 +911,14 @@ export default function PlanningPage() {
     const isSplitView = agendaViewType === 'both';
 
     return (
-      <div className="relative max-h-[80vh] overflow-x-auto border rounded-lg bg-white shadow-inner" style={{ minWidth: 350 }}>
+      <div className="relative max-h-[80vh] overflow-x-auto border rounded-lg bg-white shadow-inner" style={{ minWidth: 350, position: 'relative', background: '#fff' }}>
         {/* Grid lines spanning the entire itinerary (always visible) */}
         <div
           style={{
             position: 'absolute',
             left: 0,
-            top: 40, // below sticky headers
-            width: 90 + dateColumns.length * (isSplitView ? 180 : 1), // fallback, will be overridden by flex
+            right: 0,
+            top: 0, // align with the very top of the block area
             height: 48 * 48,
             zIndex: 1,
             pointerEvents: 'none',
@@ -869,14 +931,14 @@ export default function PlanningPage() {
                 position: 'absolute',
                 left: 0,
                 right: 0,
-                top: idx * 48,
+                top: idx * 48 + 40, // offset for sticky headers
                 height: 0,
                 borderTop: '1px solid #e5e7eb',
               }}
             />
           ))}
         </div>
-        <div className="flex" style={{ minWidth: 90 + dateColumns.length * (isSplitView ? 180 : 1) }}>
+        <div className="flex" style={{ minWidth: 90 + dateColumns.length * (isSplitView ? 180 : 1), position: 'relative', zIndex: 2 }}>
           {/* Time grid column */}
           <div style={{ width: 90, flexShrink: 0, position: 'relative', zIndex: 2, background: '#f9fafb' }}>
             <div className="sticky top-0 bg-white z-10 font-bold text-center border-b py-2" style={{ whiteSpace: 'nowrap' }}>Time</div>
@@ -908,6 +970,7 @@ export default function PlanningPage() {
                   const { blockStart, blockHeight } = getBlockPosition(item);
                   const isEvent = item.blockType === 'event';
                   const isSubEvent = item.blockType === 'subevent';
+                  const isVendor = item.blockType === 'vendor';
                   const blockKey = item.id || `${date}-${i}`;
                   // Get layout for all blocks in this column
                   const blockLayouts = getBlockLayout(getBlocksForDate(date));
@@ -923,93 +986,192 @@ export default function PlanningPage() {
                     setHoveredBlockId(null);
                     setTooltipPos(null);
                   }
+                  // Custom style for subevent and vendor blocks
+                  if (isSubEvent) {
+                    return (
+                      <div
+                        key={blockKey}
+                        className={`absolute rounded shadow-md cursor-pointer flex items-stretch transition-all duration-150`}
+                        style={{
+                          top: blockStart,
+                          height: blockHeight,
+                          zIndex: isHovered ? 100 : 11,
+                          minHeight: 32,
+                          display: 'flex',
+                          alignItems: 'stretch',
+                          fontWeight: 500,
+                          opacity: 1,
+                          position: 'absolute',
+                          overflow: 'visible',
+                          width: `72%`,
+                          left: `26%`,
+                          border: '1px solid #e5e7eb',
+                          boxSizing: 'border-box',
+                          background: 'transparent',
+                        }}
+                        title={item.title}
+                        onMouseEnter={handleMouseEnter}
+                        onMouseLeave={handleMouseLeave}
+                        onMouseMove={isHovered ? handleMouseMove : undefined}
+                      >
+                        {/* Left color bar */}
+                        <div
+                          style={{
+                            width: '6.66%',
+                            minWidth: 4,
+                            maxWidth: 8,
+                            background: item.color,
+                            borderTopLeftRadius: 6,
+                            borderBottomLeftRadius: 6,
+                            borderTopRightRadius: 0,
+                            borderBottomRightRadius: 0,
+                            display: 'block',
+                          }}
+                        />
+                        {/* Content area with text */}
+                        <div
+                          style={{
+                            width: '93.34%',
+                            background: '#f3f4f6',
+                            borderTopRightRadius: 6,
+                            borderBottomRightRadius: 6,
+                            borderTopLeftRadius: 0,
+                            borderBottomLeftRadius: 0,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'flex-start',
+                            justifyContent: 'center',
+                            padding: '4px 8px',
+                            fontSize: isSplitView ? 13 : 15,
+                            color: '#222',
+                            flex: 1,
+                            minWidth: 0,
+                            overflow: 'hidden',
+                          }}
+                        >
+                          <span style={{ fontWeight: 700, fontSize: isSplitView ? 13 : 15, marginBottom: 2 }}>{item.title}</span>
+                          <span style={{ fontSize: isSplitView ? 11 : 12, color: '#666' }}>Sub-event &bull; {item.startTime} - {item.endTime}{item.location ? ` @ ${item.location}` : ''}</span>
+                        </div>
+                      </div>
+                    );
+                  }
+                  if (isVendor) {
+                    return (
+                      <div
+                        key={blockKey}
+                        className={`absolute left-2 right-2 rounded shadow-md cursor-pointer flex items-stretch transition-all duration-150`}
+                        style={{
+                          top: blockStart,
+                          height: blockHeight,
+                          zIndex: isHovered ? 100 : 8,
+                          minHeight: 32,
+                          display: 'flex',
+                          alignItems: 'stretch',
+                          fontWeight: 500,
+                          opacity: 1,
+                          position: 'absolute',
+                          overflow: 'visible',
+                          width,
+                          left,
+                          border: '1px solid #e5e7eb',
+                          boxSizing: 'border-box',
+                          background: 'transparent',
+                        }}
+                        title={item.title}
+                        onMouseEnter={handleMouseEnter}
+                        onMouseLeave={handleMouseLeave}
+                        onMouseMove={isHovered ? handleMouseMove : undefined}
+                      >
+                        {/* Left color bar */}
+                        <div
+                          style={{
+                            width: '6.66%',
+                            minWidth: 4,
+                            maxWidth: 8,
+                            background: item.color,
+                            borderTopLeftRadius: 6,
+                            borderBottomLeftRadius: 6,
+                            borderTopRightRadius: 0,
+                            borderBottomRightRadius: 0,
+                            display: 'block',
+                          }}
+                        />
+                        {/* Content area with text */}
+                        <div
+                          style={{
+                            width: '93.34%',
+                            background: '#f3f4f6',
+                            borderTopRightRadius: 6,
+                            borderBottomRightRadius: 6,
+                            borderTopLeftRadius: 0,
+                            borderBottomLeftRadius: 0,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'flex-start',
+                            justifyContent: 'center',
+                            padding: '4px 8px',
+                            fontSize: isSplitView ? 13 : 15,
+                            color: '#222',
+                            flex: 1,
+                            minWidth: 0,
+                            overflow: 'hidden',
+                          }}
+                        >
+                          <span style={{ fontWeight: 700, fontSize: isSplitView ? 13 : 15, marginBottom: 2 }}>{item.title}</span>
+                          <span style={{ fontSize: isSplitView ? 11 : 12, color: '#666' }}>Vendor &bull; {item.startTime} - {item.endTime}{item.location ? ` @ ${item.location}` : ''}</span>
+                        </div>
+                      </div>
+                    );
+                  }
+                  // ... existing code for event blocks ...
                   return (
                     <div
                       key={blockKey}
-                      className={`absolute left-2 right-2 rounded px-2 py-1 text-xs font-semibold shadow-md cursor-pointer flex items-center transition-all duration-150 ${isEvent ? 'border-2 border-blue-900 bg-opacity-95' : isSubEvent ? 'border border-purple-700 bg-opacity-90' : ''}`}
+                      className={`absolute rounded shadow-md cursor-pointer flex items-center transition-all duration-150`}
                       style={{
                         top: blockStart,
                         height: blockHeight,
                         background: item.color,
-                        zIndex: isHovered ? 100 : (isEvent ? 10 : isSubEvent ? 11 : 8),
-                        minHeight: 16,
+                        zIndex: isHovered ? 100 : 10,
+                        minHeight: 32,
                         display: 'flex',
                         alignItems: 'center',
-                        fontWeight: isEvent ? 700 : 500,
-                        boxShadow: isEvent ? '0 2px 12px 0 rgba(30,64,175,0.22)' : isSubEvent ? '0 1px 4px 0 rgba(126,34,206,0.10)' : undefined,
+                        fontWeight: 700,
+                        boxShadow: '0 2px 12px 0 rgba(30,64,175,0.22)',
                         opacity: 1,
                         position: 'absolute',
-                        borderColor: isEvent ? '#1e40af' : undefined,
+                        border: '1px solid #e5e7eb',
+                        boxSizing: 'border-box',
                         overflow: 'visible',
-                        width,
-                        left,
+                        width: `25%`,
+                        left: 0,
+                        borderRadius: 6,
+                        padding: 0,
                       }}
                       title={item.title}
                       onMouseEnter={handleMouseEnter}
                       onMouseLeave={handleMouseLeave}
                       onMouseMove={isHovered ? handleMouseMove : undefined}
                     >
-                      {/* Peek tab for Event block */}
-                      {isEvent && (
-                        <div style={{
-                          position: 'absolute',
-                          left: -10,
-                          top: 0,
-                          bottom: 0,
-                          width: 8,
-                          background: 'rgba(30,64,175,0.7)',
-                          borderRadius: '4px 0 0 4px',
-                          zIndex: 12,
-                          boxShadow: '0 0 4px 0 rgba(30,64,175,0.18)',
-                        }} />
-                      )}
-                      <span
-                        className="truncate w-full text-base"
+                      {/* Content area with text */}
+                      <div
                         style={{
-                          position: 'relative',
-                          zIndex: 13,
-                          color: isColorDark(item.color) ? '#fff' : '#111',
+                          width: '100%',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'flex-start',
+                          justifyContent: 'center',
+                          padding: '4px 8px',
+                          fontSize: isSplitView ? 13 : 15,
+                          color: '#222',
+                          minWidth: 0,
+                          overflow: 'hidden',
+                          borderRadius: 6,
                         }}
                       >
-                        {item.title}
-                      </span>
-                      {item.location && (
-                        <span
-                          className="ml-2 text-base"
-                          style={{ color: isColorDark(item.color) ? '#fff' : '#111' }}
-                        >
-                          @ {item.location}
-                        </span>
-                      )}
-                      {/* Watermark for Event block */}
-                      {isEvent && (
-                        <span
-                          style={{
-                            position: 'absolute',
-                            left: 0,
-                            right: 0,
-                            top: 0,
-                            bottom: 0,
-                            zIndex: 9,
-                            opacity: 0.13,
-                            fontSize: 32,
-                            fontWeight: 900,
-                            color: isColorDark(item.color) ? '#fff' : '#111',
-                            pointerEvents: 'none',
-                            textAlign: 'center',
-                            lineHeight: `${blockHeight}px`,
-                            whiteSpace: 'nowrap',
-                            textOverflow: 'ellipsis',
-                            overflow: 'hidden',
-                            userSelect: 'none',
-                          }}
-                        >
-                          {item.title}
-                        </span>
-                      )}
-                      {isHovered && (
-                        <BlockTooltip item={item} x={tooltipPos?.x} y={tooltipPos?.y} />
-                      )}
+                        <span style={{ fontWeight: 700, fontSize: isSplitView ? 13 : 15, marginBottom: 2 }}>{item.title}</span>
+                        <span style={{ fontSize: isSplitView ? 11 : 12, color: '#666' }}>Event &bull; {item.startTime} - {item.endTime}{item.location ? ` @ ${item.location}` : ''}</span>
+                      </div>
                     </div>
                   );
                 })}
@@ -1020,6 +1182,32 @@ export default function PlanningPage() {
       </div>
     );
   }
+
+  // Add useEffect to persist agendaStartTime whenever it changes
+  useEffect(() => {
+    localStorage.setItem('agendaStartTime', String(agendaStartTime));
+  }, [agendaStartTime]);
+
+  // Helper to format date
+  function formatDateString(dateStr: string) {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+  }
+
+  // Helper to go to previous/next day
+  function addDays(dateStr: string, days: number) {
+    const d = new Date(dateStr);
+    d.setDate(d.getDate() + days);
+    return d.toISOString().slice(0, 10);
+  }
+
+  // Persist agendaViewDate and columnsToShow to localStorage
+  useEffect(() => {
+    localStorage.setItem('agendaViewDate', agendaViewDate);
+  }, [agendaViewDate]);
+  useEffect(() => {
+    localStorage.setItem('columnsToShow', String(columnsToShow));
+  }, [columnsToShow]);
 
   return (
     <div
@@ -1163,145 +1351,76 @@ export default function PlanningPage() {
           {tab === "agenda" && (
             <div>
               <div className="flex items-center justify-between mb-4 w-full">
-                <div className="flex gap-2 items-center">
-                  {/* Filter Dropdown */}
-                  <div className="relative" ref={filterDropdownRef}>
+                {/* Centered itinerary view buttons */}
+                <div className="flex-1 flex justify-center">
+                  <div className="flex gap-2 ml-20">
                     <button
-                      className="border rounded px-2 py-1 text-sm bg-white hover:bg-gray-100 flex items-center gap-1"
-                      onClick={() => setFilterDropdownOpen(v => !v)}
-                      aria-haspopup="listbox"
-                      aria-expanded={filterDropdownOpen}
-                      aria-label="Filter Events, Sub-Events, Vendors"
-                      type="button"
+                      className={`px-3 py-1 rounded font-semibold border ${agendaViewType === 'event' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-600 border-blue-200'}`}
+                      onClick={() => setAgendaViewType('event')}
                     >
-                      <span className="font-semibold">Filter</span>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                      Event Itinerary
                     </button>
-                    {filterDropdownOpen && (
-                      <div className="absolute left-0 mt-2 w-64 bg-white border rounded shadow-lg z-50 p-3 max-h-80 overflow-y-auto" role="listbox">
-                        <div className="mb-2 font-bold text-gray-700">Events</div>
-                        {events.map(ev => (
-                          <label key={ev.id} className="flex items-center gap-2 mb-1 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={selectedEventIds.includes(ev.id)}
-                              onChange={e => {
-                                if (e.target.checked) {
-                                  // Add event and all its sub-events
-                                  setAndPersistSelectedEventIds([...selectedEventIds, ev.id]);
-                                  const relatedSubEvents = subEvents.filter(se => se.parentEventId === ev.id).map(se => se.id);
-                                  // Only add sub-events that aren't already unchecked
-                                  setAndPersistSelectedSubEventIds(Array.from(new Set([...selectedSubEventIds, ...relatedSubEvents])));
-                                } else {
-                                  // Remove event only
-                                  setAndPersistSelectedEventIds(selectedEventIds.filter(id => id !== ev.id));
-                                  // Do NOT remove sub-events
-                                }
-                              }}
-                            />
-                            <span>{ev.name}</span>
-                            <input
-                              type="color"
-                              value={eventColors[ev.id] || '#3b82f6'}
-                              onChange={e => {
-                                setEventColors(c => {
-                                  const updated = { ...c, [ev.id]: e.target.value };
-                                  localStorage.setItem('eventColors', JSON.stringify(updated));
-                                  return updated;
-                                });
-                              }}
-                              style={{ width: 24, height: 24, border: 'none', background: 'none', cursor: 'pointer' }}
-                              title="Pick color"
-                            />
-                          </label>
-                        ))}
-                        <div className="mb-2 mt-3 font-bold text-gray-700">Sub-Events</div>
-                        {subEvents.map(se => (
-                          <label key={se.id} className="flex items-center gap-2 mb-1 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={selectedSubEventIds.includes(se.id)}
-                              onChange={e => {
-                                setAndPersistSelectedSubEventIds(e.target.checked ? [...selectedSubEventIds, se.id] : selectedSubEventIds.filter(id => id !== se.id));
-                              }}
-                            />
-                            <span>{se.name}</span>
-                            <input
-                              type="color"
-                              value={subEventColors[se.id] || '#a21caf'}
-                              onChange={e => {
-                                setSubEventColors(c => {
-                                  const updated = { ...c, [se.id]: e.target.value };
-                                  localStorage.setItem('subEventColors', JSON.stringify(updated));
-                                  return updated;
-                                });
-                              }}
-                              style={{ width: 24, height: 24, border: 'none', background: 'none', cursor: 'pointer' }}
-                              title="Pick color"
-                            />
-                          </label>
-                        ))}
-                        <div className="mb-2 mt-3 font-bold text-gray-700">Vendors</div>
-                        {vendors.map(v => (
-                          <label key={v.id} className="flex items-center gap-2 mb-1 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={selectedVendorIds.includes(v.id)}
-                              onChange={e => setAndPersistSelectedVendorIds(e.target.checked ? [...selectedVendorIds, v.id] : selectedVendorIds.filter(id => id !== v.id))}
-                            />
-                            <span>{v.name}</span>
-                            <input
-                              type="color"
-                              value={vendorColors[v.id] || '#059669'}
-                              onChange={e => {
-                                setVendorColors(c => {
-                                  const updated = { ...c, [v.id]: e.target.value };
-                                  localStorage.setItem('vendorColors', JSON.stringify(updated));
-                                  return updated;
-                                });
-                              }}
-                              style={{ width: 24, height: 24, border: 'none', background: 'none', cursor: 'pointer' }}
-                              title="Pick color"
-                            />
-                          </label>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex gap-2 items-center">
-                    <span className="font-semibold text-gray-700">Start time:</span>
-                    <select
-                      className="border rounded px-2 py-1 text-sm"
-                      value={agendaStartTime}
-                      onChange={e => setAgendaStartTime(Number(e.target.value))}
+                    <button
+                      className={`px-3 py-1 rounded font-semibold border ${agendaViewType === 'vendor' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-green-600 border-green-200'}`}
+                      onClick={() => setAgendaViewType('vendor')}
                     >
-                      {timeOptions.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                      ))}
-                    </select>
+                      Vendor Itinerary
+                    </button>
+                    <button
+                      className={`px-3 py-1 rounded font-semibold border ${agendaViewType === 'both' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-purple-600 border-purple-200'}`}
+                      onClick={() => setAgendaViewType('both')}
+                    >
+                      Both
+                    </button>
                   </div>
                 </div>
-                <div className="flex gap-2">
+                {/* Show Filters button on the right */}
+                {!showFilters && (
                   <button
-                    className={`px-3 py-1 rounded font-semibold border ${agendaViewType === 'event' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-600 border-blue-200'}`}
-                    onClick={() => setAgendaViewType('event')}
+                    className="ml-2 px-4 py-2 bg-blue-600 text-white rounded font-semibold shadow-lg hover:bg-blue-700 whitespace-nowrap"
+                    onClick={() => setShowFilters(true)}
                   >
-                    Event Itinerary
+                    Show Filters
                   </button>
+                )}
+              </div>
+              {['event', 'vendor', 'both'].includes(agendaViewType) && (
+                <div className="sticky top-0 z-20 bg-white flex items-center justify-center gap-3 py-2 mb-2 shadow-sm rounded">
                   <button
-                    className={`px-3 py-1 rounded font-semibold border ${agendaViewType === 'vendor' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-green-600 border-green-200'}`}
-                    onClick={() => setAgendaViewType('vendor')}
+                    className="rounded px-2 py-1 hover:bg-gray-100 text-lg"
+                    onClick={() => setAgendaViewDate(addDays(agendaViewDate, -1))}
+                    aria-label="Previous day"
                   >
-                    Vendor Itinerary
+                    &#8592;
                   </button>
+                  <span className="font-bold text-base sm:text-lg px-2">
+                    {columnsToShow === 1
+                      ? formatDateString(addDays(agendaViewDate, 1))
+                      : `${formatDateString(addDays(agendaViewDate, 1))} – ${formatDateString(addDays(agendaViewDate, columnsToShow))}`}
+                  </span>
                   <button
-                    className={`px-3 py-1 rounded font-semibold border ${agendaViewType === 'both' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-purple-600 border-purple-200'}`}
-                    onClick={() => setAgendaViewType('both')}
+                    className="rounded px-2 py-1 hover:bg-gray-100 text-lg"
+                    onClick={() => setAgendaViewDate(addDays(agendaViewDate, 1))}
+                    aria-label="Next day"
                   >
-                    Both
+                    &#8594;
+                  </button>
+                  <input
+                    type="date"
+                    className="ml-2 border rounded px-2 py-1 text-sm"
+                    value={agendaViewDate}
+                    onChange={e => setAgendaViewDate(e.target.value)}
+                    aria-label="Pick date"
+                    style={{ maxWidth: 140 }}
+                  />
+                  <button
+                    className="ml-2 px-2 py-1 rounded bg-blue-100 text-blue-700 font-semibold hover:bg-blue-200"
+                    onClick={() => setAgendaViewDate(getTodayDateString())}
+                  >
+                    Today
                   </button>
                 </div>
-              </div>
+              )}
               {agendaViewType === 'both' ? (
                 <div style={{ display: 'flex', gap: 16 }}>
                   <div style={{ flex: 1, minWidth: 200, display: 'flex', flexDirection: 'column' }}>
@@ -1321,64 +1440,136 @@ export default function PlanningPage() {
             </div>
           )}
         </div>
-        {!showFilters && (
-          <button
-            className="ml-2 px-4 py-2 bg-blue-600 text-white rounded font-semibold shadow-lg hover:bg-blue-700 whitespace-nowrap"
-            onClick={() => setShowFilters(true)}
-          >
-            Show Filters
-          </button>
-        )}
       </div>
       {showFilters && (
-        <div className="fixed right-0 top-0 h-full w-64 bg-white border-l shadow-lg z-40 p-4 flex flex-col gap-4">
+        <div className="fixed right-0 top-0 h-full w-96 bg-white border-l shadow-lg z-40 p-6 flex flex-col gap-6">
           <button
             className="absolute left-0 top-4 -translate-x-full px-3 py-1 bg-blue-600 text-white rounded-l font-semibold shadow-lg hover:bg-blue-700"
             onClick={() => setShowFilters(false)}
           >
             Hide Filters
           </button>
-          <div className="font-bold text-lg mb-2">Calendar Filters</div>
-          <div className="mb-2">
-            <div className="font-semibold mb-1">Day</div>
-            <select
-              className="border rounded bg-white text-black px-2 py-1 w-full"
-              value={filterDay ?? ""}
-              onChange={e => setFilterDay(e.target.value ? Number(e.target.value) : null)}
-            >
-              <option value="">All Days</option>
-              {Array.from({ length: daysInActiveMonth }, (_, i) => i + 1).map(day => (
-                <option key={day} value={day}>{day}</option>
-              ))}
-            </select>
-          </div>
-          <div className="mb-2">
-            <div className="font-semibold mb-1">Month</div>
-            <select
-              className="border rounded bg-white text-black px-2 py-1 w-full"
-              value={filterMonth ?? current.month}
-              onChange={e => setFilterMonth(Number(e.target.value))}
-            >
-              {months.map((m, idx) => (
-                <option key={m} value={idx}>{m}</option>
-              ))}
-            </select>
-          </div>
-          <div className="mb-2">
-            <div className="font-semibold mb-1">Year</div>
-            <select
-              className="border rounded bg-white text-black px-2 py-1 w-full"
-              value={filterYear ?? current.year}
-              onChange={e => setFilterYear(Number(e.target.value))}
-            >
-              {yearRange.map(y => (
-                <option key={y} value={y}>{y}</option>
-              ))}
-            </select>
-          </div>
+          {/* Modern search bar */}
+          <input
+            className="mb-4 px-3 py-2 rounded shadow border w-full focus:outline-none focus:ring-2 focus:ring-blue-400"
+            placeholder="Search events, sub-events, vendors..."
+            value={filterSearch}
+            onChange={e => setFilterSearch(e.target.value)}
+          />
+          {/* Agenda Filters Card (only for agenda tab) */}
+          {tab === 'agenda' && (
+            <div className="bg-gray-50 rounded-xl shadow p-4 flex flex-col gap-4">
+              <div className="font-bold text-lg mb-2">Agenda Filters</div>
+              {/* Events Section */}
+              <SectionFilter
+                title="Events"
+                items={events}
+                selectedIds={selectedEventIds}
+                onToggle={(id: any) => setAndPersistSelectedEventIds(selectedEventIds.includes(id) ? selectedEventIds.filter((eid: any) => eid !== id) : [...selectedEventIds, id])}
+                colors={eventColors}
+                onColorChange={(id: any, color: any) => setEventColors((c: any) => { const updated = { ...c, [id]: color }; localStorage.setItem('eventColors', JSON.stringify(updated)); return updated; })}
+                filterSearch={filterSearch}
+                showMoreLimit={5}
+              />
+              {/* Sub-Events Section */}
+              <SectionFilter
+                title="Sub-Events"
+                items={subEvents}
+                selectedIds={selectedSubEventIds}
+                onToggle={(id: any) => setAndPersistSelectedSubEventIds(selectedSubEventIds.includes(id) ? selectedSubEventIds.filter((sid: any) => sid !== id) : [...selectedSubEventIds, id])}
+                colors={subEventColors}
+                onColorChange={(id: any, color: any) => setSubEventColors((c: any) => { const updated = { ...c, [id]: color }; localStorage.setItem('subEventColors', JSON.stringify(updated)); return updated; })}
+                filterSearch={filterSearch}
+                showMoreLimit={5}
+              />
+              {/* Vendors Section */}
+              <SectionFilter
+                title="Vendors"
+                items={vendors}
+                selectedIds={selectedVendorIds}
+                onToggle={(id: any) => setAndPersistSelectedVendorIds(selectedVendorIds.includes(id) ? selectedVendorIds.filter((vid: any) => vid !== id) : [...selectedVendorIds, id])}
+                colors={vendorColors}
+                onColorChange={(id: any, color: any) => setVendorColors((c: any) => { const updated = { ...c, [id]: color }; localStorage.setItem('vendorColors', JSON.stringify(updated)); return updated; })}
+                filterSearch={filterSearch}
+                showMoreLimit={5}
+              />
+              {/* Start time dropdown */}
+              <div className="flex gap-2 items-center mt-2">
+                <span className="font-semibold text-gray-700">Start time:</span>
+                <select
+                  className="border rounded px-2 py-1 text-sm"
+                  value={agendaStartTime}
+                  onChange={e => setAgendaStartTime(Number(e.target.value))}
+                >
+                  {timeOptions.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+              {/* Columns to Show dropdown */}
+              <div className="flex gap-2 items-center mt-2">
+                <span className="font-semibold text-gray-700">Columns to show:</span>
+                <select
+                  className="border rounded px-2 py-1 text-sm"
+                  value={columnsToShow}
+                  onChange={e => setColumnsToShow(Number(e.target.value))}
+                >
+                  {[1,2,3,4,5,6,7].map(n => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+          {/* Divider */}
+          <hr className="my-4" />
+          {/* Calendar Filters Section (only for calendar tab) */}
+          {tab === 'calendar' && (
+            <div className="bg-gray-50 rounded-xl shadow p-4 flex flex-col gap-4">
+              <div className="font-bold text-lg mb-2 flex items-center gap-2">📅 Calendar Filters</div>
+              <div className="mb-2">
+                <div className="font-semibold mb-1">Day</div>
+                <select
+                  className="border rounded bg-white text-black px-2 py-1 w-full"
+                  value={filterDay ?? ""}
+                  onChange={e => setFilterDay(e.target.value ? Number(e.target.value) : null)}
+                >
+                  <option value="">All Days</option>
+                  {Array.from({ length: daysInActiveMonth }, (_, i) => i + 1).map(day => (
+                    <option key={day} value={day}>{day}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="mb-2">
+                <div className="font-semibold mb-1">Month</div>
+                <select
+                  className="border rounded bg-white text-black px-2 py-1 w-full"
+                  value={filterMonth ?? current.month}
+                  onChange={e => setFilterMonth(Number(e.target.value))}
+                >
+                  {months.map((m, idx) => (
+                    <option key={m} value={idx}>{m}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="mb-2">
+                <div className="font-semibold mb-1">Year</div>
+                <select
+                  className="border rounded bg-white text-black px-2 py-1 w-full"
+                  value={filterYear ?? current.year}
+                  onChange={e => setFilterYear(Number(e.target.value))}
+                >
+                  {yearRange.map(y => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+          {/* Clear Filters Button */}
           <button
-            className="mt-2 px-3 py-1 bg-gray-200 text-black rounded font-semibold hover:bg-gray-300"
-            onClick={() => { setFilterDay(null); setFilterMonth(null); setFilterYear(null); }}
+            className="mt-4 px-3 py-2 bg-gray-200 text-black rounded font-semibold hover:bg-gray-300 w-full"
+            onClick={() => { setFilterDay(null); setFilterMonth(null); setFilterYear(null); setAndPersistSelectedEventIds([]); setAndPersistSelectedSubEventIds([]); setAndPersistSelectedVendorIds([]); }}
           >
             Clear Filters
           </button>

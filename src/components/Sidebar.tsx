@@ -29,6 +29,7 @@ export default function Sidebar({ open: controlledOpen, setOpen: controlledSetOp
   const pathname = usePathname();
   const [religionEnabled, setReligionEnabled] = useState(true);
   const [floorplanEnabled, setFloorplanEnabled] = useState(true);
+  const [accountInstanceId, setAccountInstanceId] = useState<string | null>(null);
 
   // Close profile dropdown when clicking outside
   useEffect(() => {
@@ -50,20 +51,62 @@ export default function Sidebar({ open: controlledOpen, setOpen: controlledSetOp
     window.location.href = '/auth/login';
   };
 
-  // Fetch settings from API on mount and on featureToggleChanged event
+  // Fetch the user's account_instance_id (owner first, then member)
   useEffect(() => {
-    const fetchSettings = () => {
-      fetch('/api/settings')
-        .then(res => res.json())
-        .then(data => {
-          setReligionEnabled(data.religion_enabled);
-          setFloorplanEnabled(data.floorplan_enabled);
-        });
-    };
-    fetchSettings();
-    window.addEventListener('featureToggleChanged', fetchSettings);
-    return () => window.removeEventListener('featureToggleChanged', fetchSettings);
+    async function fetchAccountInstanceId() {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) return;
+      // Try to find an instance where the user is the owner
+      let { data: ownedInstances } = await supabase
+        .from('account_instances')
+        .select('id')
+        .eq('owner_user_id', userId)
+        .limit(1);
+      if (ownedInstances && ownedInstances.length > 0) {
+        setAccountInstanceId(ownedInstances[0].id);
+        return;
+      }
+      // Otherwise, find an instance where the user is a member
+      let { data: memberships } = await supabase
+        .from('account_instance_members')
+        .select('account_instance_id')
+        .eq('user_id', userId)
+        .limit(1);
+      if (memberships && memberships.length > 0) {
+        setAccountInstanceId(memberships[0].account_instance_id);
+      }
+    }
+    fetchAccountInstanceId();
   }, []);
+
+  // Fetch settings for the current account_instance_id
+  const fetchSettings = async (instanceId: string | null) => {
+    if (!instanceId) return;
+    const { data, error } = await supabase
+      .from('settings')
+      .select('religion_enabled, floorplan_enabled')
+      .eq('account_instance_id', instanceId)
+      .single<any>();
+    setReligionEnabled(data?.religion_enabled ?? true);
+    setFloorplanEnabled(data?.floorplan_enabled ?? true);
+  };
+
+  // Fetch settings on mount and when accountInstanceId changes
+  useEffect(() => {
+    if (accountInstanceId) {
+      fetchSettings(accountInstanceId);
+    }
+  }, [accountInstanceId]);
+
+  // Listen for featureToggleChanged event and re-fetch settings
+  useEffect(() => {
+    const handler = () => {
+      if (accountInstanceId) fetchSettings(accountInstanceId);
+    };
+    window.addEventListener('featureToggleChanged', handler);
+    return () => window.removeEventListener('featureToggleChanged', handler);
+  }, [accountInstanceId]);
 
   const sections = [
     ...baseSections,

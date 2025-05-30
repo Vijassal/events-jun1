@@ -28,6 +28,7 @@ interface SubEventData {
   category: string;
   participantLimit: string;
   tags: string;
+  account_instance_id: string;
 }
 
 // Helper to format time as h:mm AM/PM
@@ -152,6 +153,8 @@ export default function EventsPage() {
   // State for Events and Sub-Events
   const [events, setEvents] = useState<EventData[]>([]);
   const [subEvents, setSubEvents] = useState<SubEventData[]>([]);
+  const [accountInstanceId, setAccountInstanceId] = useState<string | null>(null);
+  const [fetchingAccountInstance, setFetchingAccountInstance] = useState(true);
 
   // Event Form State
   const [eventForm, setEventForm] = useState<Omit<EventData, 'id'>>({
@@ -162,7 +165,7 @@ export default function EventsPage() {
 
   // Sub-Event Form State
   const [subEventForm, setSubEventForm] = useState<Omit<SubEventData, 'id'>>({
-    parentEventId: '', name: '', date: '', startTime: '', endTime: '', location: '', type: '', category: '', participantLimit: '', tags: ''
+    parentEventId: '', name: '', date: '', startTime: '', endTime: '', location: '', type: '', category: '', participantLimit: '', tags: '', account_instance_id: ''
   });
   const [subEventError, setSubEventError] = useState('');
   const [subEventSuccess, setSubEventSuccess] = useState('');
@@ -274,42 +277,77 @@ export default function EventsPage() {
   const [editSubSuccess, setEditSubSuccess] = useState('');
   const [editSubLoading, setEditSubLoading] = useState(false);
 
-  // Fetch events from Supabase on mount
+  // Add vendors state for dropdowns/associations
+  const [vendors, setVendors] = useState<any[]>([]);
+
+  // Fetch account_instance_id like in vendors/budget page
   useEffect(() => {
-    const fetchEvents = async () => {
-      const { data, error } = await supabase.from('events').select('*').order('date', { ascending: true });
-      if (!error && data) {
-        setEvents(
-          data.map(ev => ({
-            ...ev,
-            startTime: ev.start_time,
-            endTime: ev.end_time,
-            participantLimit: ev.participant_limit,
-          }))
-        );
+    async function fetchAccountInstance() {
+      setFetchingAccountInstance(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.email) {
+        setAccountInstanceId(null);
+        setFetchingAccountInstance(false);
+        return;
       }
-    };
-    fetchEvents();
+      const { data: accounts, error } = await supabase
+        .from('account_instances')
+        .select('id, name')
+        .eq('name', session.user.email);
+      if (error || !accounts || accounts.length === 0) {
+        setAccountInstanceId(null);
+        setFetchingAccountInstance(false);
+        return;
+      }
+      setAccountInstanceId(accounts[0].id);
+      setFetchingAccountInstance(false);
+    }
+    fetchAccountInstance();
   }, []);
 
-  // Fetch sub-events from Supabase on mount
   useEffect(() => {
-    const fetchSubEvents = async () => {
-      const { data, error } = await supabase.from('sub_events').select('*');
-      if (!error && data) {
-        setSubEvents(
-          data.map(se => ({
-            ...se,
-            parentEventId: se.parent_event_id,
-            startTime: se.start_time,
-            endTime: se.end_time,
-            participantLimit: se.participant_limit,
-          }))
-        );
-      }
-    };
-    fetchSubEvents();
-  }, []);
+    if (accountInstanceId) {
+      fetchEvents();
+      fetchSubEvents();
+      fetchVendors();
+    }
+    console.log('accountInstanceId:', accountInstanceId); // Debug
+  }, [accountInstanceId]);
+
+  // Update fetchEvents to filter by account_instance_id
+  const fetchEvents = async () => {
+    if (!accountInstanceId) return setEvents([]);
+    const { data, error } = await supabase.from('events').select('*').eq('account_instance_id', accountInstanceId).order('date', { ascending: true });
+    if (error) setEvents([]);
+    else setEvents(data || []);
+    console.log('Fetched events:', data, 'Error:', error); // Debug
+  };
+
+  // Update fetchSubEvents to filter by account_instance_id
+  const fetchSubEvents = async () => {
+    if (!accountInstanceId) return setSubEvents([]);
+    const { data, error } = await supabase.from('sub_events').select('*').eq('account_instance_id', accountInstanceId);
+    if (error) setSubEvents([]);
+    else setSubEvents(
+      (data || []).map(se => ({
+        ...se,
+        parentEventId: se.parent_event_id,
+        startTime: se.start_time,
+        endTime: se.end_time,
+        participantLimit: se.participant_limit,
+      }))
+    );
+    console.log('Fetched subEvents:', data, 'Error:', error); // Debug
+  };
+
+  // Fetch vendors for the current account_instance_id
+  const fetchVendors = async () => {
+    if (!accountInstanceId) return setVendors([]);
+    const { data, error } = await supabase.from('vendors').select('*').eq('account_instance_id', accountInstanceId);
+    if (error) setVendors([]);
+    else setVendors(data || []);
+    console.log('Fetched vendors:', data, 'Error:', error); // Debug
+  };
 
   // Edit event logic
   const handleEditEvent = (eventId: string) => {
@@ -364,6 +402,7 @@ export default function EventsPage() {
         category: eventForm.category,
         participant_limit: eventForm.participantLimit ? Number(eventForm.participantLimit) : null,
         tags: eventForm.tags || null,
+        account_instance_id: accountInstanceId,
       };
       // Validate required fields
       if (
@@ -419,6 +458,7 @@ export default function EventsPage() {
       category: subEventForm.category,
       participant_limit: subEventForm.participantLimit ? Number(subEventForm.participantLimit) : null,
       tags: subEventForm.tags || null,
+      account_instance_id: accountInstanceId,
     };
     // Validate required fields
     if (
@@ -443,7 +483,7 @@ export default function EventsPage() {
     }
     setSubEvents([...subEvents, data[0]]);
     setSubEventSuccess('Sub-Event added successfully!');
-    setSubEventForm({ parentEventId: '', name: '', date: '', startTime: '', endTime: '', location: '', type: '', category: '', participantLimit: '', tags: '' });
+    setSubEventForm({ parentEventId: '', name: '', date: '', startTime: '', endTime: '', location: '', type: '', category: '', participantLimit: '', tags: '', account_instance_id: '' });
   };
 
   // Tab style variables
@@ -686,7 +726,7 @@ export default function EventsPage() {
               <span style={{ color: '#a1a1aa', fontSize: 16 }}>No events to display.</span>
             ) : (
               events.map((ev, idx) => {
-                const subList = subEvents.filter(se => se.parentEventId === ev.id);
+                const subList = subEvents.filter(se => se.parentEventId === ev.id && se.account_instance_id === accountInstanceId);
                 return (
                   <React.Fragment key={ev.id}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 32, justifyContent: 'center', width: '100vw', maxWidth: '100vw', flexWrap: 'wrap', boxSizing: 'border-box', padding: 0 }}>

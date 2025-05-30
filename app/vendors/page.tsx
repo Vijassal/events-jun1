@@ -15,11 +15,12 @@ interface VendorData {
   location: string;
   type: string;
   category: string;
+  account_instance_id: string;
 }
 
 export default function VendorsPage() {
   const [vendors, setVendors] = useState<VendorData[]>([]);
-  const [vendorForm, setVendorForm] = useState<Omit<VendorData, 'id'>>({
+  const [vendorForm, setVendorForm] = useState<Omit<VendorData, 'id' | 'account_instance_id'>>({
     name: '', date: '', start_time: '', end_time: '', location: '', type: '', category: ''
   });
   const [editingVendorId, setEditingVendorId] = useState<string | null>(null);
@@ -28,6 +29,8 @@ export default function VendorsPage() {
   const [inlineEditRowId, setInlineEditRowId] = useState<string | null>(null);
   const [inlineEditRow, setInlineEditRow] = useState<Partial<VendorData> | null>(null);
   const [inlineEditLoading, setInlineEditLoading] = useState(false);
+  const [accountInstanceId, setAccountInstanceId] = useState<string | null>(null);
+  const [fetchingAccountInstance, setFetchingAccountInstance] = useState(true);
 
   // DataGrid column state persistence
   const [columnState, setColumnState] = useState<any>(() => {
@@ -37,6 +40,37 @@ export default function VendorsPage() {
     }
     return undefined;
   });
+
+  // Fetch account_instance_id like in budget page
+  useEffect(() => {
+    async function fetchAccountInstance() {
+      setFetchingAccountInstance(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.email) {
+        setAccountInstanceId(null);
+        setFetchingAccountInstance(false);
+        setError('User not logged in');
+        return;
+      }
+      const { data: accounts, error } = await supabase
+        .from('account_instances')
+        .select('id, name')
+        .eq('name', session.user.email);
+      if (error || !accounts || accounts.length === 0) {
+        setAccountInstanceId(null);
+        setFetchingAccountInstance(false);
+        setError('No account instance found for this user email');
+        return;
+      }
+      setAccountInstanceId(accounts[0].id);
+      setFetchingAccountInstance(false);
+    }
+    fetchAccountInstance();
+  }, []);
+
+  useEffect(() => {
+    if (accountInstanceId) fetchVendors();
+  }, [accountInstanceId]);
 
   // DataGrid columns for vendors
   const vendorColumns: GridColDef[] = [
@@ -66,7 +100,7 @@ export default function VendorsPage() {
                 disabled={inlineEditLoading}
                 onClick={async () => {
                   setInlineEditLoading(true);
-                  const { error } = await supabase.from('vendors').update(inlineEditRow).eq('id', params.row.id);
+                  const { error } = await supabase.from('vendors').update(inlineEditRow).eq('id', params.row.id).eq('account_instance_id', accountInstanceId);
                   if (!error) {
                     setSuccess('Vendor updated!');
                     setInlineEditRowId(null);
@@ -151,12 +185,9 @@ export default function VendorsPage() {
     localStorage.setItem('vendorColumnState', JSON.stringify(newState));
   };
 
-  useEffect(() => {
-    fetchVendors();
-  }, []);
-
   async function fetchVendors() {
-    const { data, error } = await supabase.from('vendors').select('*').order('date', { ascending: true });
+    if (!accountInstanceId) return setVendors([]);
+    const { data, error } = await supabase.from('vendors').select('*').eq('account_instance_id', accountInstanceId).order('date', { ascending: true });
     if (error) setError('Failed to fetch vendors.');
     else setVendors(data || []);
   }
@@ -169,8 +200,12 @@ export default function VendorsPage() {
     }
     setError('');
     setSuccess('');
+    if (!accountInstanceId) {
+      setError('No account instance selected.');
+      return;
+    }
     if (editingVendorId) {
-      const { error } = await supabase.from('vendors').update(vendorForm).eq('id', editingVendorId);
+      const { error } = await supabase.from('vendors').update(vendorForm).eq('id', editingVendorId).eq('account_instance_id', accountInstanceId);
       if (error) setError('Failed to update vendor.');
       else {
         setSuccess('Vendor updated!');
@@ -179,7 +214,7 @@ export default function VendorsPage() {
         fetchVendors();
       }
     } else {
-      const { error } = await supabase.from('vendors').insert([{ ...vendorForm }]);
+      const { error } = await supabase.from('vendors').insert([{ ...vendorForm, account_instance_id: accountInstanceId }]);
       if (error) setError('Failed to add vendor.');
       else {
         setSuccess('Vendor added!');
@@ -197,7 +232,11 @@ export default function VendorsPage() {
   }
 
   async function handleDeleteVendor(id: string) {
-    const { error } = await supabase.from('vendors').delete().eq('id', id);
+    if (!accountInstanceId) {
+      setError('No account instance selected.');
+      return;
+    }
+    const { error } = await supabase.from('vendors').delete().eq('id', id).eq('account_instance_id', accountInstanceId);
     if (error) setError('Failed to delete vendor.');
     else {
       setSuccess('Vendor deleted!');
@@ -358,7 +397,9 @@ export default function VendorsPage() {
           onColumnWidthChange={handleColumnWidthChange}
           isCellEditable={isCellEditable}
           processRowUpdate={handleInlineEditChange}
-          experimentalFeatures={{ newEditingApi: true }}
+          onProcessRowUpdateError={(error) => {
+            setError('Failed to update vendor: ' + (error?.message || error));
+          }}
           sx={{
             border: 'none',
             fontSize: 16,

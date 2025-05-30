@@ -13,7 +13,6 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { fetchConversionRate as fetchConversionRateUtil } from '../../src/lib/currencyUtils';
 
 function BudgetPageInner() {
   const [budgets, setBudgets] = useState<any[]>([]);
@@ -77,11 +76,6 @@ function BudgetPageInner() {
     }
     return 'USD';
   });
-  const [accountInstances, setAccountInstances] = useState<{ id: string, name: string }[]>([]);
-  const [accountInstanceId, setAccountInstanceId] = useState<string | null>(null);
-  const [accountInstanceError, setAccountInstanceError] = useState<string | null>(null);
-  const [fetchingAccountInstance, setFetchingAccountInstance] = useState(true);
-  const [settingsCurrency, setSettingsCurrency] = useState<string>('USD');
 
   // Top 25 currencies (ISO codes)
   const topCurrencies = [
@@ -91,309 +85,128 @@ function BudgetPageInner() {
   ];
   const baseCurrency = 'USD';
 
-  useEffect(() => {
-    const updateConversionRate = async () => {
-      if (
-        !inlineEditRowId &&
-        settingsCurrency &&
-        inlineForm.currency &&
-        settingsCurrency !== inlineForm.currency
-      ) {
-        const rate = await fetchConversionRateUtil(inlineForm.currency, settingsCurrency, supabase);
-        setInlineForm(f => ({
-          ...f,
-          conversion_rate: rate,
-          converted_amount: f.cost ? (parseFloat(f.cost) * rate).toFixed(2) : '',
-        }));
-      } else if (!inlineEditRowId && settingsCurrency === inlineForm.currency) {
-        setInlineForm(f => ({ ...f, conversion_rate: 1 }));
-      }
-    };
-    updateConversionRate();
-  }, [settingsCurrency, inlineForm.currency, inlineEditRowId]);
-
-  // Remove fetchUserCurrency from profiles by email
-  // Instead, get userCurrency from localStorage (set in settings)
-  useEffect(() => {
-    const currencyChangeHandler = () => {
-      if (typeof window !== 'undefined') {
-        setUserCurrency(localStorage.getItem('selectedCurrency') || 'USD');
-      }
-    };
-    window.addEventListener('currencyChanged', currencyChangeHandler);
-    return () => window.removeEventListener('currencyChanged', currencyChangeHandler);
-  }, []);
+  // Account Instance selection logic
+  const [accountInstanceId, setAccountInstanceId] = useState<string>('');
+  const [accountInstances, setAccountInstances] = useState<any[]>([]);
+  const [instanceLoading, setInstanceLoading] = useState(true);
+  const [instanceError, setInstanceError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchAccountInstance() {
-      setFetchingAccountInstance(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log('Session:', session); // Debug: show session
-      if (!session?.user?.email) {
-        setAccountInstanceError('User not logged in');
-        setAccountInstanceId(null);
-        setFetchingAccountInstance(false);
+    async function fetchInstances() {
+      setInstanceLoading(true);
+      setInstanceError(null);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setInstanceError('User not logged in');
+        setInstanceLoading(false);
         return;
       }
-      // Query account_instances by name (which stores the email)
-      const { data: accounts, error } = await supabase
-        .from('account_instances')
-        .select('id, name')
-        .eq('name', session.user.email);
-      console.log('Account instances for name (email):', session.user.email, accounts); // Debug: show account instances
-      if (error || !accounts || accounts.length === 0) {
-        setAccountInstanceError('No account instance found for this user email');
-        setAccountInstanceId(null);
-        setFetchingAccountInstance(false);
+      const { data: instances, error } = await supabase
+        .from('account_instance_users')
+        .select('account_instance_id, account_instances(name)')
+        .eq('user_id', user.id)
+        .eq('status', 'active');
+      if (error) {
+        setInstanceError(error.message);
+        setInstanceLoading(false);
         return;
       }
-      setAccountInstanceId(accounts[0].id); // Use the first match
-      console.log('Using accountInstanceId:', accounts[0].id); // Debug: show selected accountInstanceId
-      setAccountInstanceError(null);
-      setFetchingAccountInstance(false);
+      setAccountInstances(instances || []);
+      if (instances && instances.length === 1) {
+        setAccountInstanceId(instances[0].account_instance_id);
+      }
+      setInstanceLoading(false);
     }
-    fetchAccountInstance();
-  }, []);
-
-  // Use accountInstanceId for all budget queries
-  const fetchBudgets = async () => {
-    if (!accountInstanceId) {
-      setAccountInstanceError('No account instance selected.');
-      setBudgets([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    setAccountInstanceError(null);
-    const { data, error } = await supabase
-      .from('budgets')
-      .select('*')
-      .eq('account_instance_id', accountInstanceId)
-      .order('date', { ascending: false });
-    console.log('Budgets for accountInstanceId:', accountInstanceId, data); // Debug: show budgets fetched
-    if (error) {
-      setError(error.message);
-      setBudgets([]);
-    } else {
-      const mapped = (data || []).map(row => ({
-        ...row,
-        cost: row.cost != null ? row.cost.toString() : '0.00',
-      }));
-      setBudgets(mapped);
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    fetchBudgets();
-    // Fetch vendors for dropdown
-    const fetchVendors = async () => {
-      const { data, error } = await supabase.from('vendors').select('id, name').order('name');
-      if (!error && data) setVendors(data);
-    };
-    fetchVendors();
-    // Fetch events for dropdown
-    const fetchEvents = async () => {
-      const { data, error } = await supabase.from('events').select('id, name').order('name');
-      if (!error && data) setEvents(data);
-    };
-    fetchEvents();
-    // Fetch sub-events for dropdown
-    const fetchSubEvents = async () => {
-      const { data, error } = await supabase.from('sub_events').select('id, name, parent_event_id').order('name');
-      if (!error && data) setSubEvents(data.map(se => ({ ...se, parentEventId: se.parent_event_id })));
-    };
-    fetchSubEvents();
+    fetchInstances();
   }, []);
 
   useEffect(() => {
-    if (modalOpen as boolean && selectedBudget as any) {
-      fetchModalData((selectedBudget as any).id);
+    if (typeof window !== 'undefined' && accountInstanceId) {
+      localStorage.setItem('account_instance_id', accountInstanceId);
     }
-  }, [modalOpen as boolean, selectedBudget as any]);
+  }, [accountInstanceId]);
 
-  // Handler for View Details
-  const handleViewDetails = (id: string) => {
-    const budget = budgets.find((row) => row.id === id);
-    setSelectedBudget(budget);
-    setTab(0);
-    setModalOpen(true);
-  };
-
-  // Add handler
-  const handleAddBudget = () => {
-    setEditData(null);
-    setFormOpen(true);
-  };
-
-  // Edit handler
-  const handleEditBudget = (row: any) => {
-    setEditData(row);
-    setFormOpen(true);
-  };
-
-  // Success handler (refresh budgets)
-  const handleFormSuccess = () => {
-    // Re-fetch budgets after add/edit
-    fetchBudgets();
-  };
-
-  // Payment add handler
-  const handleAddPayment = () => {
-    setEditPaymentData(null);
-    setPaymentFormOpen(true);
-  };
-
-  // Payment edit handler
-  const handleEditPayment = (row: any) => {
-    setEditPaymentData(row);
-    setPaymentFormOpen(true);
-  };
-
-  // Payment form success handler (refresh payments)
-  const handlePaymentFormSuccess = () => {
-    // Re-fetch payment logs for the selected budget
-    if (selectedBudget) {
-      fetchModalData(selectedBudget.id);
-    }
-  };
-
-  // Item cost add handler
-  const handleAddItemCost = (paymentId: string) => {
-    setEditItemCostData(null);
-    setSelectedPaymentId(paymentId);
-    setItemCostFormOpen(true);
-  };
-
-  // Item cost edit handler
-  const handleEditItemCost = (row: any) => {
-    setEditItemCostData(row);
-    setSelectedPaymentId(row.logged_payment_id);
-    setItemCostFormOpen(true);
-  };
-
-  // Item cost form success handler (refresh item costs)
-  const handleItemCostFormSuccess = () => {
-    if (selectedBudget) {
-      fetchModalData(selectedBudget.id);
-    }
-  };
-
-  // Handlers to persist column changes
-  const handleColumnOrderChange = (params: any) => {
-    const newState = { ...columnState, order: params.columnOrder };
-    setColumnState(newState);
-    localStorage.setItem('budgetColumnState', JSON.stringify(newState));
-  };
-  const handleColumnVisibilityModelChange = (model: any) => {
-    const newState = { ...columnState, visibility: model };
-    setColumnState(newState);
-    localStorage.setItem('budgetColumnState', JSON.stringify(newState));
-  };
-  const handleColumnWidthChange = (params: any) => {
-    const newState = { ...columnState, width: { ...(columnState?.width || {}), [params.colDef.field]: params.width } };
-    setColumnState(newState);
-    localStorage.setItem('budgetColumnState', JSON.stringify(newState));
-  };
-
-  const handleInlineFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    if (name === 'cost' || name === 'conversion_rate') {
-      const newCost = name === 'cost' ? value : inlineForm.cost;
-      const newRate = name === 'conversion_rate' ? parseFloat(value) || 1 : inlineForm.conversion_rate;
-      setInlineForm({
-        ...inlineForm,
-        [name]: value,
-        converted_amount: newCost && newRate ? (parseFloat(newCost) * newRate).toFixed(2) : '',
-      });
+  // Use Supabase for daily exchange rates
+  const fetchConversionRate = async (from: string, to: string) => {
+    setInlineConversionLoading(true);
+    let rate = 1;
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    if (from === to) {
+      rate = 1;
     } else {
-      setInlineForm({ ...inlineForm, [name]: value });
-    }
-  };
-  const handleInlineAddTag = () => {
-    if (inlineTagInput.trim() && !inlineForm.tags.includes(inlineTagInput.trim())) {
-      setInlineForm({ ...inlineForm, tags: [...inlineForm.tags, inlineTagInput.trim()] });
-    }
-    setInlineTagInput('');
-  };
-  const handleInlineDeleteTag = (tag: string) => {
-    setInlineForm({ ...inlineForm, tags: inlineForm.tags.filter((t: string) => t !== tag) });
-  };
-  const cleanUUID = (value: string) => value === "" ? null : value;
-  const handleInlineFormSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setInlineFormLoading(true);
-    setInlineFormError(null);
-    setInlineFormSuccess(null);
-    if (!accountInstanceId) {
-      setInlineFormError('No account instance selected.');
-      setInlineFormLoading(false);
-      return;
-    }
-    if (!inlineForm.purchase || !inlineForm.date || !inlineForm.category || !inlineForm.cost) {
-      setInlineFormError('Please fill in all required fields.');
-      setInlineFormLoading(false);
-      return;
-    }
-    const data = {
-      purchase: inlineForm.purchase,
-      vendor_id: cleanUUID(inlineForm.vendor_id),
-      date: inlineForm.date,
-      event_id: cleanUUID(inlineForm.event_id),
-      sub_event_id: cleanUUID(inlineForm.sub_event_id),
-      category: inlineForm.category,
-      cost: Number(inlineForm.cost),
-      converted_amount: inlineForm.converted_amount && !isNaN(Number(inlineForm.converted_amount)) ? Number(inlineForm.converted_amount) : 0,
-      tags: inlineForm.tags,
-      payment_for: inlineForm.payment_for,
-      payment_by: inlineForm.payment_by,
-      account_instance_id: accountInstanceId
-    };
-    const { error } = await supabase.from('budgets').insert([data]);
-    if (error) {
-      setInlineFormError(error.message);
-    } else {
-      setInlineFormSuccess('Budget added!');
-      setInlineForm(initialInlineForm);
-      setInlineTagInput('');
-      fetchBudgets();
-    }
-    setInlineFormLoading(false);
-  };
-
-  // Refactor fetchModalData to be callable
-  const fetchModalData = async (budgetId: string) => {
-    setModalLoading(true);
-    setModalError(null);
-    setPaymentLogs([]);
-    setItemCosts([]);
-    // Fetch payment logs for this budget
-    const { data: payments, error: paymentsError } = await supabase
-      .from('logged_payments')
-      .select('*')
-      .eq('budget_id', budgetId);
-    if (paymentsError) {
-      setModalError(paymentsError.message);
-      setModalLoading(false);
-      return;
-    }
-    setPaymentLogs(payments || []);
-    // Fetch item costs for all payment logs
-    if (payments && payments.length > 0) {
-      const paymentIds = payments.map((p: any) => p.id);
-      const { data: items, error: itemsError } = await supabase
-        .from('logged_item_costs')
-        .select('*')
-        .in('logged_payment_id', paymentIds);
-      if (itemsError) {
-        setModalError(itemsError.message);
+      // 1. Try to get from Supabase
+      const { data, error } = await supabase
+        .from('exchange_rates')
+        .select('rate')
+        .eq('from_currency', from)
+        .eq('to_currency', to)
+        .eq('date', today)
+        .single();
+      if (data && data.rate) {
+        rate = data.rate;
       } else {
-        setItemCosts(items || []);
+        // 2. Fetch from API
+        try {
+          const res = await fetch(`https://api.exchangerate.host/convert?from=${from}&to=${to}`);
+          const apiData = await res.json();
+          if (apiData && apiData.info && apiData.info.rate) {
+            rate = apiData.info.rate;
+          } else if (apiData && apiData.result) {
+            rate = apiData.result;
+          }
+          // 3. Upsert into Supabase (update if exists, insert if not)
+          await supabase.from('exchange_rates').upsert([
+            { from_currency: from, to_currency: to, rate, date: today }
+          ], { onConflict: 'from_currency,to_currency,date' });
+        } catch (e) {
+          rate = 1;
+        }
       }
     }
-    setModalLoading(false);
+    setInlineForm(f => ({
+      ...f,
+      conversion_rate: rate,
+      converted_amount: f.cost ? (parseFloat(f.cost) * rate).toFixed(2) : '',
+    }));
+    setInlineConversionLoading(false);
   };
+
+  // Only auto-fetch for new entry (not editing)
+  useEffect(() => {
+    // Only auto-fetch for new entry (not editing)
+    if (
+      !inlineEditRowId &&
+      inlineForm.currency &&
+      userCurrency &&
+      inlineForm.currency !== userCurrency &&
+      inlineForm.cost
+    ) {
+      fetchConversionRate(inlineForm.currency, userCurrency);
+    } else if (!inlineEditRowId && inlineForm.currency === userCurrency && inlineForm.cost) {
+      setInlineForm(f => ({ ...f, conversion_rate: 1, converted_amount: f.cost }));
+    }
+    // eslint-disable-next-line
+  }, [inlineForm.currency, inlineForm.cost, userCurrency, inlineEditRowId]);
+
+  // Fetch user currency from profile
+  useEffect(() => {
+    async function fetchUserCurrency() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('currency')
+          .eq('email', user.email)
+          .single();
+        if (profile && profile.currency) setUserCurrency(profile.currency);
+      }
+    }
+    fetchUserCurrency();
+    // Listen for currency changes from Settings
+    const handler = () => fetchUserCurrency();
+    window.addEventListener('currencyChanged', handler);
+    return () => window.removeEventListener('currencyChanged', handler);
+  }, []);
 
   // Budget columns for DataGrid
   const budgetColumns: GridColDef[] = [
@@ -532,7 +345,7 @@ function BudgetPageInner() {
   ];
 
   // Patch DataGrid columns to always apply headerClassName
-  const columnsWithHandler = budgetColumns.map((col: GridColDef) => ({
+  const columnsWithHandler = budgetColumns.map((col) => ({
     ...col,
     headerClassName: col.headerClassName || 'center-header',
     editable: col.field !== 'actions',
@@ -551,35 +364,241 @@ function BudgetPageInner() {
     return params.value;
   };
 
-  // Add this after accountInstanceId is set up and fetchBudgets is defined
-  useEffect(() => {
-    if (accountInstanceId) {
-      fetchBudgets();
+  // Refactor fetchModalData to be callable
+  const fetchModalData = async (budgetId: string) => {
+    setModalLoading(true);
+    setModalError(null);
+    setPaymentLogs([]);
+    setItemCosts([]);
+    // Fetch payment logs for this budget
+    const { data: payments, error: paymentsError } = await supabase
+      .from('logged_payments')
+      .select('*')
+      .eq('budget_id', budgetId);
+    if (paymentsError) {
+      setModalError(paymentsError.message);
+      setModalLoading(false);
+      return;
     }
-  }, [accountInstanceId]);
-
-  // Fetch settings currency when accountInstanceId changes
-  useEffect(() => {
-    async function fetchSettingsCurrency() {
-      if (!accountInstanceId) return;
-      const { data, error } = await supabase
-        .from('settings')
-        .select('currency')
-        .eq('account_instance_id', accountInstanceId)
-        .single();
-      if (data && data.currency) {
-        setSettingsCurrency(data.currency);
+    setPaymentLogs(payments || []);
+    // Fetch item costs for all payment logs
+    if (payments && payments.length > 0) {
+      const paymentIds = payments.map((p: any) => p.id);
+      const { data: items, error: itemsError } = await supabase
+        .from('logged_item_costs')
+        .select('*')
+        .in('logged_payment_id', paymentIds);
+      if (itemsError) {
+        setModalError(itemsError.message);
       } else {
-        setSettingsCurrency('USD');
+        setItemCosts(items || []);
       }
     }
-    fetchSettingsCurrency();
-  }, [accountInstanceId]);
+    setModalLoading(false);
+  };
 
-  // Show loading or error if fetching account instance
-  if (fetchingAccountInstance) {
-    return <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress color="secondary" /></Box>;
+  // Helper to validate UUID
+  function isValidUUID(uuid) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid);
   }
+
+  // Fetch budgets from Supabase
+  const fetchBudgets = async () => {
+    if (!isValidUUID(accountInstanceId)) {
+      setBudgets([]);
+      setError('Please select a valid account instance.');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    const { data, error } = await supabase
+      .from('budgets')
+      .select('*')
+      .eq('account_instance_id', accountInstanceId)
+      .order('date', { ascending: false });
+    console.log('Fetched budgets:', data);
+    if (error) {
+      setError(error.message);
+      setBudgets([]);
+    } else {
+      const mapped = (data || []).map(row => {
+        console.log('Row before mapping:', row);
+        return {
+          ...row,
+          cost: row.cost != null ? row.cost.toString() : '0.00',
+        };
+      });
+      console.log('Mapped budgets:', mapped);
+      setBudgets(mapped);
+    }
+    setLoading(false);
+  };
+  useEffect(() => {
+    fetchBudgets();
+    // Fetch vendors for dropdown
+    const fetchVendors = async () => {
+      const { data, error } = await supabase.from('vendors').select('id, name').order('name');
+      if (!error && data) setVendors(data);
+    };
+    fetchVendors();
+    // Fetch events for dropdown
+    const fetchEvents = async () => {
+      const { data, error } = await supabase.from('events').select('id, name').order('name');
+      if (!error && data) setEvents(data);
+    };
+    fetchEvents();
+    // Fetch sub-events for dropdown
+    const fetchSubEvents = async () => {
+      const { data, error } = await supabase.from('sub_events').select('id, name, parent_event_id').order('name');
+      if (!error && data) setSubEvents(data.map(se => ({ ...se, parentEventId: se.parent_event_id })));
+    };
+    fetchSubEvents();
+  }, []);
+
+  useEffect(() => {
+    if (modalOpen as boolean && selectedBudget as any) {
+      fetchModalData((selectedBudget as any).id);
+    }
+  }, [modalOpen as boolean, selectedBudget as any]);
+
+  // Handler for View Details
+  const handleViewDetails = (id: string) => {
+    const budget = budgets.find((row) => row.id === id);
+    setSelectedBudget(budget);
+    setTab(0);
+    setModalOpen(true);
+  };
+
+  // Add handler
+  const handleAddBudget = () => {
+    setEditData(null);
+    setFormOpen(true);
+  };
+
+  // Edit handler
+  const handleEditBudget = (row: any) => {
+    setEditData(row);
+    setFormOpen(true);
+  };
+
+  // Success handler (refresh budgets)
+  const handleFormSuccess = () => {
+    // Re-fetch budgets after add/edit
+    fetchBudgets();
+  };
+
+  // Payment add handler
+  const handleAddPayment = () => {
+    setEditPaymentData(null);
+    setPaymentFormOpen(true);
+  };
+
+  // Payment edit handler
+  const handleEditPayment = (row: any) => {
+    setEditPaymentData(row);
+    setPaymentFormOpen(true);
+  };
+
+  // Payment form success handler (refresh payments)
+  const handlePaymentFormSuccess = () => {
+    // Re-fetch payment logs for the selected budget
+    if (selectedBudget) {
+      fetchModalData(selectedBudget.id);
+    }
+  };
+
+  // Item cost add handler
+  const handleAddItemCost = (paymentId: string) => {
+    setEditItemCostData(null);
+    setSelectedPaymentId(paymentId);
+    setItemCostFormOpen(true);
+  };
+
+  // Item cost edit handler
+  const handleEditItemCost = (row: any) => {
+    setEditItemCostData(row);
+    setSelectedPaymentId(row.logged_payment_id);
+    setItemCostFormOpen(true);
+  };
+
+  // Item cost form success handler (refresh item costs)
+  const handleItemCostFormSuccess = () => {
+    if (selectedBudget) {
+      fetchModalData(selectedBudget.id);
+    }
+  };
+
+  // Handlers to persist column changes
+  const handleColumnOrderChange = (params: any) => {
+    const newState = { ...columnState, order: params.columnOrder };
+    setColumnState(newState);
+    localStorage.setItem('budgetColumnState', JSON.stringify(newState));
+  };
+  const handleColumnVisibilityModelChange = (model: any) => {
+    const newState = { ...columnState, visibility: model };
+    setColumnState(newState);
+    localStorage.setItem('budgetColumnState', JSON.stringify(newState));
+  };
+  const handleColumnWidthChange = (params: any) => {
+    const newState = { ...columnState, width: { ...(columnState?.width || {}), [params.colDef.field]: params.width } };
+    setColumnState(newState);
+    localStorage.setItem('budgetColumnState', JSON.stringify(newState));
+  };
+
+  const handleInlineFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setInlineForm({ ...inlineForm, [name]: value });
+  };
+  const handleInlineAddTag = () => {
+    if (inlineTagInput.trim() && !inlineForm.tags.includes(inlineTagInput.trim())) {
+      setInlineForm({ ...inlineForm, tags: [...inlineForm.tags, inlineTagInput.trim()] });
+    }
+    setInlineTagInput('');
+  };
+  const handleInlineDeleteTag = (tag: string) => {
+    setInlineForm({ ...inlineForm, tags: inlineForm.tags.filter((t: string) => t !== tag) });
+  };
+  const cleanUUID = (value: string) => value === "" ? null : value;
+  const handleInlineFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setInlineFormLoading(true);
+    setInlineFormError(null);
+    setInlineFormSuccess(null);
+    if (!isValidUUID(accountInstanceId)) {
+      setInlineFormError('Please select a valid account instance.');
+      setInlineFormLoading(false);
+      return;
+    }
+    if (!inlineForm.purchase || !inlineForm.date || !inlineForm.category || !inlineForm.cost) {
+      setInlineFormError('Please fill in all required fields.');
+      setInlineFormLoading(false);
+      return;
+    }
+    const data = {
+      purchase: inlineForm.purchase,
+      vendor_id: cleanUUID(inlineForm.vendor_id),
+      date: inlineForm.date,
+      event_id: cleanUUID(inlineForm.event_id),
+      sub_event_id: cleanUUID(inlineForm.sub_event_id),
+      category: inlineForm.category,
+      cost: Number(inlineForm.cost),
+      converted_amount: inlineForm.converted_amount && !isNaN(Number(inlineForm.converted_amount)) ? Number(inlineForm.converted_amount) : 0,
+      tags: inlineForm.tags,
+      payment_for: inlineForm.payment_for,
+      payment_by: inlineForm.payment_by,
+      account_instance_id: accountInstanceId
+    };
+    const { error } = await supabase.from('budgets').insert([data]);
+    if (error) {
+      setInlineFormError(error.message);
+    } else {
+      setInlineFormSuccess('Budget added!');
+      setInlineForm(initialInlineForm);
+      setInlineTagInput('');
+      fetchBudgets();
+    }
+    setInlineFormLoading(false);
+  };
 
   return (
     <div style={{
@@ -595,22 +614,34 @@ function BudgetPageInner() {
       paddingRight: 32,
       boxSizing: 'border-box',
     }}>
-      <h2 style={{ fontSize: 22, fontWeight: 700, color: '#7c3aed', marginBottom: 8, letterSpacing: 0.2 }}>Budget & Expenses</h2>
-      {accountInstances.length > 1 && (
+      {/* Account Instance Selector */}
+      {instanceLoading ? (
+        <div>Loading account instances...</div>
+      ) : instanceError ? (
+        <div style={{ color: 'red' }}>{instanceError}</div>
+      ) : accountInstances.length > 1 ? (
         <div style={{ marginBottom: 16 }}>
-          <label style={{ fontWeight: 500, color: '#4b5563', marginRight: 8 }}>Account Instance:</label>
+          <label style={{ fontWeight: 600, marginRight: 8 }}>Select Account Instance:</label>
           <select
-            value={accountInstanceId || ''}
+            value={accountInstanceId}
             onChange={e => setAccountInstanceId(e.target.value)}
-            style={{ height: 36, padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 14, outline: 'none', background: '#fff', color: '#222' }}
+            style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc', width: 320 }}
           >
+            <option value="">-- Select --</option>
             {accountInstances.map(inst => (
-              <option key={inst.id} value={inst.id}>{inst.name || inst.id}</option>
+              <option key={inst.account_instance_id} value={inst.account_instance_id}>
+                {inst.account_instances?.name || inst.account_instance_id}
+              </option>
             ))}
           </select>
         </div>
+      ) : null}
+      {(!isValidUUID(accountInstanceId)) && (
+        <div style={{ color: 'red', marginBottom: 16 }}>
+          Please select a valid account instance to view or add budgets.
+        </div>
       )}
-      {accountInstanceError && <Alert severity="error">{accountInstanceError}</Alert>}
+      <h2 style={{ fontSize: 22, fontWeight: 700, color: '#7c3aed', marginBottom: 8, letterSpacing: 0.2 }}>Budget & Expenses</h2>
       {/* Inline Add Budget Form */}
       <form
         style={{
@@ -764,7 +795,6 @@ function BudgetPageInner() {
               columns={columnsWithHandler}
               getRowId={(row) => row.id}
               initialState={columnState ? { ...columnState, pagination: { paginationModel: { pageSize: 5, page: 0 } } } : { pagination: { paginationModel: { pageSize: 5, page: 0 } } }}
-              pageSizeOptions={[5, 10, 25, 50, 100]}
               disableRowSelectionOnClick
               onColumnOrderChange={handleColumnOrderChange}
               onColumnVisibilityModelChange={handleColumnVisibilityModelChange}

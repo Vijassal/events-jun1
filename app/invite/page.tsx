@@ -580,14 +580,21 @@ export default function InvitePage() {
     // Get current user
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user?.id) return;
-    // Get account_instance_id
-    let { data: account, error: accErr } = await supabase
+    // Get all account_instances for this user (should only be one)
+    let { data: accounts, error: accErr } = await supabase
       .from('account_instances')
       .select('id')
-      .eq('owner_user_id', session.user.id)
-      .single();
-    if (!account?.id) {
-      // Try to create one if not found
+      .eq('owner_user_id', session.user.id);
+    if (accErr) return;
+    let account = null;
+    if (accounts && accounts.length > 0) {
+      // Use the first account_instance if multiple exist (should not happen if DB is correct)
+      account = accounts[0];
+      if (accounts.length > 1) {
+        console.warn('Multiple account_instances found for user:', session.user.id, accounts);
+      }
+    } else {
+      // Only create if none exists
       const insertObj = { name: session.user.email || 'My Account', owner_user_id: session.user.id };
       const { data: newAcc, error: newAccErr } = await supabase
         .from('account_instances')
@@ -598,13 +605,13 @@ export default function InvitePage() {
       account = newAcc;
     }
     setAccount(account);
-    // Fetch main participants
+    // Fetch main participants for this account_instance
     const { data: mainParticipants, error: mainErr } = await supabase
       .from('participants')
       .select('*')
       .eq('account_instance_id', account.id);
     if (mainErr) return;
-    // Fetch all additional participants for this account
+    // Fetch all additional participants for this account_instance
     const { data: allAdditional, error: addErr } = await supabase
       .from('additional_participants')
       .select('*')
@@ -625,7 +632,6 @@ export default function InvitePage() {
         childAge: ap.child_age,
       })),
     }));
-    console.log("Fetched participants:", participantsWithAdditional); // <-- Add this
     setParticipants(participantsWithAdditional);
   }
 

@@ -42,15 +42,24 @@ const Toggle = ({ checked, onChange, label }: { checked: boolean, onChange: (che
 export default function SettingsPage() {
   const [religionEnabled, setReligionEnabled] = useState(true);
   const [floorplanEnabled, setFloorplanEnabled] = useState(true);
+  const [currency, setCurrency] = useState('USD');
+  const [theme, setTheme] = useState('light');
+  const [emailNotifications, setEmailNotifications] = useState(true);
+  const [smsNotifications, setSmsNotifications] = useState(true);
+  const [profilePrivate, setProfilePrivate] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [currency, setCurrency] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('selectedCurrency') || 'USD';
-    }
-    return 'USD';
-  });
-  const [profileId, setProfileId] = useState<string | null>(null);
+  const [tab, setTab] = useState(0);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteStatus, setInviteStatus] = useState('');
+  const [accountInstanceId, setAccountInstanceId] = useState<string | null>(null);
+  const [instances, setInstances] = useState<{ id: string, name: string }[]>([]);
+  const [selectedInstance, setSelectedInstance] = useState<string | null>(null);
+  const [members, setMembers] = useState<{ user_id: string, email: string, role: string }[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [roleStatus, setRoleStatus] = useState('');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => setTab(newValue);
   const currencyList = [
     { code: 'USD', name: 'US Dollar' },
     { code: 'EUR', name: 'Euro' },
@@ -78,69 +87,212 @@ export default function SettingsPage() {
     { code: 'THB', name: 'Thai Baht' },
     { code: 'IDR', name: 'Indonesian Rupiah' },
   ];
-  const [tab, setTab] = useState(0);
-  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => setTab(newValue);
 
+  // Fetch the user's account_instance_id (owner first, then member)
   useEffect(() => {
-    // Fetch feature toggles from API
-    async function fetchToggles() {
-      setLoading(true);
-      const res = await fetch('/api/settings');
-      const data = await res.json();
-      setReligionEnabled(data.religion_enabled);
-      setFloorplanEnabled(data.floorplan_enabled);
-      setLoading(false);
-    }
-    fetchToggles();
-  }, []);
-
-  useEffect(() => {
-    // Fetch user profile and currency from Supabase
-    async function fetchProfile() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('id, currency')
-          .eq('email', user.email)
-          .single();
-        if (profile) {
-          setProfileId(profile.id);
-          setCurrency(profile.currency || 'USD');
-          if (profile.currency) {
-            localStorage.setItem('selectedCurrency', profile.currency);
-          }
-        }
+    async function fetchAccountInstanceId() {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) return;
+      // Try to find an instance where the user is the owner
+      let { data: ownedInstances, error: ownerError } = await supabase
+        .from('account_instances')
+        .select('id')
+        .eq('owner_user_id', userId)
+        .limit(1);
+      console.log('Owned instances:', ownedInstances, ownerError);
+      if (ownedInstances && ownedInstances.length > 0) {
+        setAccountInstanceId(ownedInstances[0].id);
+        return;
+      }
+      // Otherwise, find an instance where the user is a member
+      let { data: memberships, error: memberError } = await supabase
+        .from('account_instance_members')
+        .select('account_instance_id')
+        .eq('user_id', userId)
+        .limit(1);
+      console.log('Memberships:', memberships, memberError);
+      if (memberships && memberships.length > 0) {
+        setAccountInstanceId(memberships[0].account_instance_id);
       }
     }
-    fetchProfile();
+    fetchAccountInstanceId();
   }, []);
 
-  const updateSettings = (newReligion: boolean, newFloorplan: boolean) => {
-    setSaving(true);
-    fetch('/api/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ religion_enabled: newReligion, floorplan_enabled: newFloorplan })
-    })
-      .then(res => res.json())
-      .then(data => {
-        setReligionEnabled(data.religion_enabled);
-        setFloorplanEnabled(data.floorplan_enabled);
-        setSaving(false);
-        window.dispatchEvent(new Event('featureToggleChanged'));
-      });
-  };
+  // Fetch settings for the current account_instance_id
+  useEffect(() => {
+    async function fetchSettings() {
+      if (!accountInstanceId) return;
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('settings')
+        .select('*')
+        .eq('account_instance_id', accountInstanceId)
+        .single<any>();
+      console.log('Settings fetch result:', data, error);
+      if (error && error.code === 'PGRST116') {
+        // No settings row exists, create one
+        const { data: newData, error: insertError } = await supabase
+          .from('settings')
+          .insert({ account_instance_id: accountInstanceId })
+          .single<any>();
+        if (!insertError && newData) {
+          setReligionEnabled(newData.religion_enabled ?? true);
+          setFloorplanEnabled(newData.floorplan_enabled ?? true);
+          setCurrency(newData.currency ?? 'USD');
+          setTheme(newData.theme ?? 'light');
+          setEmailNotifications(newData.email_notifications_enabled ?? true);
+          setSmsNotifications(newData.sms_notifications_enabled ?? true);
+          setProfilePrivate(newData.profile_private ?? false);
+        }
+      } else if (data) {
+        setReligionEnabled(data.religion_enabled ?? true);
+        setFloorplanEnabled(data.floorplan_enabled ?? true);
+        setCurrency(data.currency ?? 'USD');
+        setTheme(data.theme ?? 'light');
+        setEmailNotifications(data.email_notifications_enabled ?? true);
+        setSmsNotifications(data.sms_notifications_enabled ?? true);
+        setProfilePrivate(data.profile_private ?? false);
+      }
+      setLoading(false);
+    }
+    fetchSettings();
+  }, [accountInstanceId]);
 
-  const handleCurrencyChange = async (newCurrency: string) => {
-    setCurrency(newCurrency);
-    localStorage.setItem('selectedCurrency', newCurrency);
+  useEffect(() => {
+    async function fetchInstances() {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) return;
+      const { data: memberships } = await supabase
+        .from('account_instance_members')
+        .select('account_instance_id, account_instances(name)')
+        .eq('user_id', userId);
+      console.log('Fetched memberships:', memberships);
+      if (memberships) {
+        const insts = memberships.map((m: any) => ({ id: m.account_instance_id, name: m.account_instances?.name || 'Unnamed Instance' }));
+        console.log('Mapped instances:', insts);
+        setInstances(insts);
+        // Set default instance from localStorage or first
+        const stored = typeof window !== 'undefined' ? localStorage.getItem('account_instance_id') : null;
+        setSelectedInstance(stored || (insts[0]?.id ?? null));
+        if (!stored && insts[0]?.id) localStorage.setItem('account_instance_id', insts[0].id);
+      }
+    }
+    fetchInstances();
+  }, []);
+
+  useEffect(() => {
+    async function fetchMembers() {
+      if (!selectedInstance) return;
+      setMembersLoading(true);
+      const { data, error } = await supabase
+        .from('account_instance_members')
+        .select('user_id, role, profiles(email)')
+        .eq('account_instance_id', selectedInstance);
+      if (data) {
+        setMembers(data.map((m: any) => ({ user_id: m.user_id, email: m.profiles?.email || '', role: m.role })));
+      }
+      setMembersLoading(false);
+    }
+    fetchMembers();
+  }, [selectedInstance]);
+
+  useEffect(() => {
+    async function fetchCurrentUser() {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id || null);
+    }
+    fetchCurrentUser();
+  }, []);
+
+  // Update settings for the current account_instance_id
+  const updateSettings = async (fields: Partial<any>) => {
     setSaving(true);
-    if (profileId) {
-      await supabase.from('profiles').update({ currency: newCurrency }).eq('id', profileId);
+    const payload = {
+      religion_enabled: religionEnabled,
+      floorplan_enabled: floorplanEnabled,
+      currency,
+      theme,
+      email_notifications_enabled: emailNotifications,
+      sms_notifications_enabled: smsNotifications,
+      profile_private: profilePrivate,
+      ...fields,
+      account_instance_id: accountInstanceId,
+    };
+    const { data, error } = await supabase
+      .from('settings')
+      .upsert([payload], { onConflict: 'account_instance_id' })
+      .select()
+      .single<any>();
+    if (!error && data) {
+      setReligionEnabled(data.religion_enabled ?? true);
+      setFloorplanEnabled(data.floorplan_enabled ?? true);
+      setCurrency(data.currency ?? 'USD');
+      setTheme(data.theme ?? 'light');
+      setEmailNotifications(data.email_notifications_enabled ?? true);
+      setSmsNotifications(data.sms_notifications_enabled ?? true);
+      setProfilePrivate(data.profile_private ?? false);
     }
     setSaving(false);
-    window.dispatchEvent(new Event('currencyChanged'));
+    window.dispatchEvent(new Event('featureToggleChanged'));
+  };
+
+  const handleInvite = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setInviteStatus('');
+    if (!inviteEmail) {
+      setInviteStatus('Please enter an email.');
+      return;
+    }
+    if (!selectedInstance) {
+      setInviteStatus('No account instance selected.');
+      return;
+    }
+    // 1. Look up user by email in the profiles table
+    const { data: userProfile, error: userError } = await supabase
+      .from('profiles')
+      .select('user_id')
+      .eq('email', inviteEmail)
+      .single();
+    if (userError || !userProfile || !userProfile.user_id) {
+      setInviteStatus('User not found. They must register first.');
+      return;
+    }
+    // 2. Insert into account_instance_members
+    const { error: memberError } = await supabase
+      .from('account_instance_members')
+      .insert({
+        account_instance_id: selectedInstance,
+        user_id: userProfile.user_id,
+        role: 'member',
+      });
+    if (memberError) {
+      setInviteStatus('Failed to add member: ' + memberError.message);
+    } else {
+      setInviteStatus('User invited successfully!');
+      setInviteEmail('');
+    }
+  };
+
+  const handleInstanceSwitch = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedInstance(e.target.value);
+    localStorage.setItem('account_instance_id', e.target.value);
+    window.location.reload(); // reload to re-fetch data for new instance
+  };
+
+  const handleRoleChange = async (userId: string, newRole: string) => {
+    setRoleStatus('');
+    const { error } = await supabase
+      .from('account_instance_members')
+      .update({ role: newRole })
+      .eq('account_instance_id', selectedInstance)
+      .eq('user_id', userId);
+    if (error) {
+      setRoleStatus('Failed to update role: ' + error.message);
+    } else {
+      setRoleStatus('Role updated successfully!');
+    }
   };
 
   function TabPanel(props: { children: React.ReactNode; value: number; index: number }) {
@@ -163,6 +315,14 @@ export default function SettingsPage() {
   return (
     <div style={{ maxWidth: 600, margin: "0 auto", padding: 32 }}>
       <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 24 }}>Settings</h1>
+      <div style={{ marginBottom: 24 }}>
+        <label style={{ fontWeight: 600, marginRight: 8 }}>Current Account Instance:</label>
+        <select value={selectedInstance || ''} onChange={handleInstanceSwitch} style={{ padding: 6, borderRadius: 4, border: '1px solid #ccc' }}>
+          {instances.map(inst => (
+            <option key={inst.id} value={inst.id}>{inst.name}</option>
+          ))}
+        </select>
+      </div>
       <Tabs value={tab} onChange={handleTabChange} aria-label="settings tabs" sx={{ mb: 2 }}>
         <Tab label="Profile" id="settings-tab-0" aria-controls="settings-tabpanel-0" />
         <Tab label="Team" id="settings-tab-1" aria-controls="settings-tabpanel-1" />
@@ -196,10 +356,10 @@ export default function SettingsPage() {
           <h2 style={{ fontSize: 20, fontWeight: 600 }}>Notifications</h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
             <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input type="checkbox" disabled /> Email Notifications
+              <input type="checkbox" checked={emailNotifications} onChange={e => { setEmailNotifications(e.target.checked); updateSettings({ email_notifications_enabled: e.target.checked }); }} /> Email Notifications
             </label>
             <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input type="checkbox" disabled /> SMS Notifications
+              <input type="checkbox" checked={smsNotifications} onChange={e => { setSmsNotifications(e.target.checked); updateSettings({ sms_notifications_enabled: e.target.checked }); }} /> SMS Notifications
             </label>
           </div>
         </section>
@@ -207,7 +367,7 @@ export default function SettingsPage() {
           <h2 style={{ fontSize: 20, fontWeight: 600 }}>Privacy</h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
             <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input type="checkbox" disabled /> Make profile private
+              <input type="checkbox" checked={profilePrivate} onChange={e => { setProfilePrivate(e.target.checked); updateSettings({ profile_private: e.target.checked }); }} /> Make profile private
             </label>
           </div>
         </section>
@@ -215,10 +375,10 @@ export default function SettingsPage() {
           <h2 style={{ fontSize: 20, fontWeight: 600 }}>Theme</h2>
           <div style={{ display: "flex", flexDirection: "row", gap: 16, marginTop: 12 }}>
             <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input type="radio" name="theme" disabled /> Light
+              <input type="radio" name="theme" checked={theme === 'light'} onChange={() => { setTheme('light'); updateSettings({ theme: 'light' }); }} /> Light
             </label>
             <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input type="radio" name="theme" disabled /> Dark
+              <input type="radio" name="theme" checked={theme === 'dark'} onChange={() => { setTheme('dark'); updateSettings({ theme: 'dark' }); }} /> Dark
             </label>
           </div>
         </section>
@@ -227,15 +387,51 @@ export default function SettingsPage() {
         {/* Team Tab Content */}
         <section style={{ marginBottom: 32 }}>
           <h2 style={{ fontSize: 20, fontWeight: 600 }}>Invite Team Member</h2>
-          <form style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 400 }} onSubmit={e => e.preventDefault()}>
+          <form style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 400 }} onSubmit={handleInvite}>
             <label>
               Email
-              <input type="email" placeholder="team@example.com" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ccc" }} />
+              <input type="email" placeholder="team@example.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ccc" }} />
             </label>
-            <button type="submit" style={{ padding: 10, borderRadius: 6, background: '#7c3aed', color: '#fff', border: 'none', fontWeight: 600, cursor: 'pointer' }} disabled>
-              Send Invite (Coming Soon)
+            <button type="submit" style={{ padding: 10, borderRadius: 6, background: '#7c3aed', color: '#fff', border: 'none', fontWeight: 600, cursor: 'pointer' }}>
+              Send Invite
             </button>
+            {inviteStatus && <div style={{ marginTop: 8, color: inviteStatus.includes('success') ? 'green' : 'red' }}>{inviteStatus}</div>}
           </form>
+        </section>
+        <section style={{ marginTop: 32 }}>
+          <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>Team Members</h3>
+          {membersLoading ? (
+            <div>Loading members...</div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Email</th>
+                  <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Role</th>
+                </tr>
+              </thead>
+              <tbody>
+                {members.map((member) => (
+                  <tr key={member.user_id}>
+                    <td style={{ padding: 8 }}>{member.email}</td>
+                    <td style={{ padding: 8 }}>
+                      <select
+                        value={member.role}
+                        onChange={e => handleRoleChange(member.user_id, e.target.value)}
+                        disabled={member.user_id === currentUserId && member.role === 'owner'}
+                        style={{ padding: 4, borderRadius: 4 }}
+                      >
+                        <option value="owner">Owner</option>
+                        <option value="admin">Admin</option>
+                        <option value="member">Member</option>
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {roleStatus && <div style={{ marginTop: 8, color: roleStatus.includes('success') ? 'green' : 'red' }}>{roleStatus}</div>}
         </section>
       </TabPanel>
       <TabPanel value={tab} index={2}>
@@ -245,12 +441,12 @@ export default function SettingsPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 12 }}>
             <Toggle
               checked={religionEnabled}
-              onChange={checked => updateSettings(checked, floorplanEnabled)}
+              onChange={checked => { setReligionEnabled(checked); updateSettings({ religion_enabled: checked }); }}
               label="Enable Religion Page"
             />
             <Toggle
               checked={floorplanEnabled}
-              onChange={checked => updateSettings(religionEnabled, checked)}
+              onChange={checked => { setFloorplanEnabled(checked); updateSettings({ floorplan_enabled: checked }); }}
               label="Enable Floorplan Page"
             />
             {saving && <span style={{ color: '#7c3aed', fontSize: 14 }}>Saving...</span>}
@@ -264,7 +460,7 @@ export default function SettingsPage() {
               labelId="currency-label"
               value={currency}
               label="Currency"
-              onChange={e => handleCurrencyChange(e.target.value)}
+              onChange={e => { setCurrency(e.target.value); updateSettings({ currency: e.target.value }); localStorage.setItem('selectedCurrency', e.target.value); window.dispatchEvent(new Event('currencyChanged')); }}
             >
               {currencyList.map(c => (
                 <MenuItem key={c.code} value={c.code}>{c.code} - {c.name}</MenuItem>

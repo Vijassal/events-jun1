@@ -17,12 +17,12 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -50,8 +50,41 @@ export default function RegisterPage() {
       return;
     }
 
-    // Optionally, create a profile in your 'profiles' table here
-    // await supabase.from('profiles').insert([{ email: formData.email, name: `${formData.firstName} ${formData.lastName}` }]);
+    // Create a profile in your 'profiles' table
+    if (data && data.user) {
+      // 1. Create account_instance
+      const { data: accountInstance, error: aiError } = await supabase
+        .from('account_instances')
+        .insert([
+          {
+            name: `${formData.firstName} ${formData.lastName}'s Account`,
+            owner_user_id: data.user.id,
+            currency: 'USD'
+          }
+        ])
+        .select('id')
+        .single();
+
+      // 2. Add user as owner in account_instance_members
+      if (accountInstance && accountInstance.id) {
+        await supabase.from('account_instance_members').insert([
+          {
+            account_instance_id: accountInstance.id,
+            user_id: data.user.id,
+            role: 'owner'
+          }
+        ]);
+      }
+
+      // 3. Create profile (already in your code)
+      await supabase.from('profiles').insert([
+        {
+          user_id: data.user.id,
+          email: formData.email,
+          name: `${formData.firstName} ${formData.lastName}`,
+        }
+      ]);
+    }
 
     setLoading(false);
     router.push('/auth/login?registered=true');
