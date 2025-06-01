@@ -17,6 +17,7 @@
     "@mui/material": "^7.1.0",
     "@mui/x-data-grid": "^8.4.0",
     "@prisma/client": "^6.8.2",
+    "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.49.8",
     "@types/bcryptjs": "^2.4.6",
     "bcryptjs": "^3.0.2",
