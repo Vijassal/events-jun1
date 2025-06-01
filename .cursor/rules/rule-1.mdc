@@ -1,0 +1,16 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Use the terminal command "date" to find today's date AND TIME which you need for timestamp
+
+Always create simple summary of changes. If the changes are critical to the system configuration rather than design, make it detailed. Note should be taken after every successful session of the original or new topic.
+
+Addition rules for notes:
+- There should always be only 1 notes folder in the entire project (you will find this and store the notes in it)
+- 1 note document should be created for every new day where the corresponding note taken on day of should be stored accordingly
+- Every new note file should title itself accordingly to the current date
+- Any changes made should have very simple notes of what changes
+- All new change should have a date and time stamp (it should) placed with the notes inside the notes
+- When making notes, you need to confirm today's date matches the note's file title and place the notes in there as appropriate

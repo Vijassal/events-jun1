@@ -1,0 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+At the end of every session, request to the user (or me) if the active changes in "/Users/vishaljassal" for git repository should be be stopped. Note: this is only for Git Repository and nothing else (should not touch any other system files or documents and folders).
+
+This will help this message that appears too often : "The git repository at "/Users/vishaljassal" has too many active changes, only a subset of Git features will be enabled."

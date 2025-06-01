@@ -59,6 +59,7 @@ export default function SettingsPage() {
   const [membersLoading, setMembersLoading] = useState(false);
   const [roleStatus, setRoleStatus] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [bachelorPartyEnabled, setBachelorPartyEnabled] = useState(true);
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => setTab(newValue);
   const currencyList = [
     { code: 'USD', name: 'US Dollar' },
@@ -144,6 +145,7 @@ export default function SettingsPage() {
           setEmailNotifications(newData.email_notifications_enabled ?? true);
           setSmsNotifications(newData.sms_notifications_enabled ?? true);
           setProfilePrivate(newData.profile_private ?? false);
+          setBachelorPartyEnabled(newData.bachelor_party_enabled ?? true);
         }
       } else if (data) {
         setReligionEnabled(data.religion_enabled ?? true);
@@ -153,6 +155,7 @@ export default function SettingsPage() {
         setEmailNotifications(data.email_notifications_enabled ?? true);
         setSmsNotifications(data.sms_notifications_enabled ?? true);
         setProfilePrivate(data.profile_private ?? false);
+        setBachelorPartyEnabled(data.bachelor_party_enabled ?? true);
       }
       setLoading(false);
     }
@@ -217,6 +220,7 @@ export default function SettingsPage() {
       email_notifications_enabled: emailNotifications,
       sms_notifications_enabled: smsNotifications,
       profile_private: profilePrivate,
+      bachelor_party_enabled: bachelorPartyEnabled,
       ...fields,
       account_instance_id: accountInstanceId,
     };
@@ -233,6 +237,7 @@ export default function SettingsPage() {
       setEmailNotifications(data.email_notifications_enabled ?? true);
       setSmsNotifications(data.sms_notifications_enabled ?? true);
       setProfilePrivate(data.profile_private ?? false);
+      setBachelorPartyEnabled(data.bachelor_party_enabled ?? true);
     }
     setSaving(false);
     window.dispatchEvent(new Event('featureToggleChanged'));
@@ -448,6 +453,11 @@ export default function SettingsPage() {
               checked={floorplanEnabled}
               onChange={checked => { setFloorplanEnabled(checked); updateSettings({ floorplan_enabled: checked }); }}
               label="Enable Floorplan Page"
+            />
+            <Toggle
+              checked={bachelorPartyEnabled}
+              onChange={checked => { setBachelorPartyEnabled(checked); updateSettings({ bachelor_party_enabled: checked }); }}
+              label="Enable Bachelor Party Page"
             />
             {saving && <span style={{ color: '#7c3aed', fontSize: 14 }}>Saving...</span>}
           </div>

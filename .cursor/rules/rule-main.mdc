@@ -1,0 +1,178 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Always remember the below details.
+
+Particular project path directory: 
+/Users/vishaljassal/Documents/events-main
+
+GitHub:
+https://github.com/Vijassal/event-prod.git
+
+Vercel:
+vercel.com/vijassals-projects/events-main
+
+Vercel API:
+prj_sUEI27QuJuhfZn6mY35kLk2eEkcy
+
+All tables in Supabase:
+
+| table_name               | column_name                 | data_type                |
+| ------------------------ | --------------------------- | ------------------------ |
+| account_instance_members | id                          | integer                  |
+| account_instance_members | account_instance_id         | uuid                     |
+| account_instance_members | user_id                     | uuid                     |
+| account_instance_members | role                        | text                     |
+| account_instance_members | created_at                  | timestamp with time zone |
+| account_instance_users   | id                          | uuid                     |
+| account_instance_users   | user_id                     | uuid                     |
+| account_instance_users   | account_instance_id         | uuid                     |
+| account_instance_users   | role                        | text                     |
+| account_instance_users   | status                      | text                     |
+| account_instance_users   | invited_email               | text                     |
+| account_instance_users   | created_at                  | timestamp with time zone |
+| account_instances        | id                          | uuid                     |
+| account_instances        | name                        | text                     |
+| account_instances        | created_at                  | timestamp with time zone |
+| account_instances        | owner_user_id               | uuid                     |
+| account_instances        | currency                    | text                     |
+| additional_participants  | id                          | uuid                     |
+| additional_participants  | main_participant_id         | uuid                     |
+| additional_participants  | account_instance_id         | uuid                     |
+| additional_participants  | first_name                  | text                     |
+| additional_participants  | last_name                   | text                     |
+| additional_participants  | email                       | text                     |
+| additional_participants  | phone                       | text                     |
+| additional_participants  | family                      | text                     |
+| additional_participants  | relationship                | text                     |
+| additional_participants  | invited_by                  | text                     |
+| additional_participants  | tags                        | ARRAY                    |
+| additional_participants  | events                      | ARRAY                    |
+| additional_participants  | sub_events                  | ARRAY                    |
+| additional_participants  | is_child                    | boolean                  |
+| additional_participants  | child_age                   | integer                  |
+| additional_participants  | custom_fields               | jsonb                    |
+| additional_participants  | created_at                  | timestamp with time zone |
+| additional_participants  | updated_at                  | timestamp with time zone |
+| budgets                  | id                          | uuid                     |
+| budgets                  | purchase                    | text                     |
+| budgets                  | vendor_id                   | uuid                     |
+| budgets                  | date                        | date                     |
+| budgets                  | event_id                    | uuid                     |
+| budgets                  | category                    | text                     |
+| budgets                  | cost                        | numeric                  |
+| budgets                  | tags                        | ARRAY                    |
+| budgets                  | payment_for                 | text                     |
+| budgets                  | payment_by                  | text                     |
+| budgets                  | created_at                  | timestamp with time zone |
+| budgets                  | updated_at                  | timestamp with time zone |
+| budgets                  | conversion_rate             | numeric                  |
+| budgets                  | converted_amount            | numeric                  |
+| budgets                  | currency                    | text                     |
+| budgets                  | sub_event_id                | uuid                     |
+| budgets                  | account_instance_id         | uuid                     |
+| events                   | id                          | uuid                     |
+| events                   | name                        | text                     |
+| events                   | date                        | date                     |
+| events                   | start_time                  | time without time zone   |
+| events                   | location                    | text                     |
+| events                   | type                        | text                     |
+| events                   | category                    | text                     |
+| events                   | participant_limit           | integer                  |
+| events                   | tags                        | text                     |
+| events                   | created_at                  | timestamp with time zone |
+| events                   | end_time                    | time without time zone   |
+| events                   | account_instance_id         | uuid                     |
+| exchange_rates           | id                          | uuid                     |
+| exchange_rates           | from_currency               | text                     |
+| exchange_rates           | to_currency                 | text                     |
+| exchange_rates           | rate                        | double precision         |
+| exchange_rates           | date                        | date                     |
+| exchange_rates           | created_at                  | timestamp with time zone |
+| logged_item_costs        | id                          | uuid                     |
+| logged_item_costs        | logged_payment_id           | uuid                     |
+| logged_item_costs        | item                        | text                     |
+| logged_item_costs        | per_cost                    | numeric                  |
+| logged_item_costs        | subtotal                    | numeric                  |
+| logged_item_costs        | total                       | numeric                  |
+| logged_item_costs        | created_at                  | timestamp with time zone |
+| logged_payments          | id                          | uuid                     |
+| logged_payments          | budget_id                   | uuid                     |
+| logged_payments          | purchase                    | text                     |
+| logged_payments          | payment_amount              | numeric                  |
+| logged_payments          | payment_by                  | text                     |
+| logged_payments          | payment_for                 | text                     |
+| logged_payments          | payment_date                | date                     |
+| logged_payments          | item                        | text                     |
+| logged_payments          | created_at                  | timestamp with time zone |
+| participants             | id                          | uuid                     |
+| participants             | account_instance_id         | uuid                     |
+| participants             | first_name                  | text                     |
+| participants             | last_name                   | text                     |
+| participants             | email                       | text                     |
+| participants             | phone                       | text                     |
+| participants             | family                      | text                     |
+| participants             | relationship                | text                     |
+| participants             | invited_by                  | text                     |
+| participants             | tags                        | ARRAY                    |
+| participants             | events                      | ARRAY                    |
+| participants             | sub_events                  | ARRAY                    |
+| participants             | additional_participants     | jsonb                    |
+| participants             | is_child                    | boolean                  |
+| participants             | child_age                   | integer                  |
+| participants             | created_at                  | timestamp with time zone |
+| participants             | updated_at                  | timestamp with time zone |
+| participants             | custom_fields               | jsonb                    |
+| profiles                 | id                          | uuid                     |
+| profiles                 | user_id                     | uuid                     |
+| profiles                 | name                        | text                     |
+| profiles                 | email                       | text                     |
+| profiles                 | created_at                  | timestamp with time zone |
+| profiles                 | updated_at                  | timestamp with time zone |
+| profiles                 | currency                    | text                     |
+| settings                 | id                          | integer                  |
+| settings                 | religion_enabled            | boolean                  |
+| settings                 | floorplan_enabled           | boolean                  |
+| settings                 | updated_at                  | timestamp with time zone |
+| settings                 | account_instance_id         | uuid                     |
+| settings                 | currency                    | text                     |
+| settings                 | theme                       | text                     |
+| settings                 | email_notifications_enabled | boolean                  |
+| settings                 | sms_notifications_enabled   | boolean                  |
+| settings                 | profile_private             | boolean                  |
+| sub_events               | id                          | uuid                     |
+| sub_events               | parent_event_id             | uuid                     |
+| sub_events               | name                        | text                     |
+| sub_events               | date                        | date                     |
+| sub_events               | start_time                  | time without time zone   |
+| sub_events               | location                    | text                     |
+| sub_events               | type                        | text                     |
+| sub_events               | category                    | text                     |
+| sub_events               | participant_limit           | integer                  |
+| sub_events               | tags                        | text                     |
+| sub_events               | created_at                  | timestamp with time zone |
+| sub_events               | end_time                    | time without time zone   |
+| sub_events               | account_instance_id         | uuid                     |
+| vendors                  | id                          | uuid                     |
+| vendors                  | name                        | text                     |
+| vendors                  | date                        | date                     |
+| vendors                  | start_time                  | text                     |
+| vendors                  | event                       | text                     |
+| vendors                  | location                    | text                     |
+| vendors                  | type                        | text                     |
+| vendors                  | category                    | text                     |
+| vendors                  | created_at                  | timestamp with time zone |
+| vendors                  | end_time                    | text                     |
+| vendors                  | account_instance_id         | uuid                     |
+| views                    | id                          | uuid                     |
+| views                    | account_instance_id         | uuid                     |
+| views                    | name                        | text                     |
+| views                    | fields                      | jsonb                    |
+| views                    | visible                     | jsonb                    |
+| views                    | isDefault                   | boolean                  |
+| views                    | statsConfig                 | jsonb                    |
+| views                    | customFields                | jsonb                    |
+| views                    | childExclusionAge           | integer                  |
+| views                    | created_at                  | timestamp with time zone |

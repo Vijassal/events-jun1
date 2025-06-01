@@ -1,0 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+If running into errors for the app or deployment, when applicable, cursor should automatically create a console.log in appropriate areas or look at trace files to review errors and return feedback.
+
+You should be fully capable of doing test suite cases until the root error has been discovered and diagnosed.

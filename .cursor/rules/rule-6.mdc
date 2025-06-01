@@ -1,0 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+If there is a .env or .env.local file related issue, look for and review any .env file within the project directory first (keeping in mind other rules).
+
+If you cannot find the .env file, mention this to the user. If you cannot read the .env file, mention this to the user. If there is a file that SEEMS to be like the env. file, double check the name and format of the file and based on the content within it, advise if it needs to be fixed so that it works as intended.

@@ -1,0 +1,10 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+All requests are project specific. In other words, you will almost always be working in a particular directory unless otherwise indicated by the user. 
+
+This particular rule will be updated on a project to project basis. This means, you will ONLY ever look at this particular directory, you will ONLY ever make changes in this directory. All other directory/files/documents outside of this particular path can be ignored. If there is a path directory that says back up or back-up, it can be ignored.
+
+Rule-Main will indicate anything project related. Always review it.

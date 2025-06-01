@@ -29,6 +29,7 @@ export default function Sidebar({ open: controlledOpen, setOpen: controlledSetOp
   const pathname = usePathname();
   const [religionEnabled, setReligionEnabled] = useState(true);
   const [floorplanEnabled, setFloorplanEnabled] = useState(true);
+  const [bachelorPartyEnabled, setBachelorPartyEnabled] = useState(true);
   const [accountInstanceId, setAccountInstanceId] = useState<string | null>(null);
 
   // Close profile dropdown when clicking outside
@@ -85,11 +86,12 @@ export default function Sidebar({ open: controlledOpen, setOpen: controlledSetOp
     if (!instanceId) return;
     const { data, error } = await supabase
       .from('settings')
-      .select('religion_enabled, floorplan_enabled')
+      .select('religion_enabled, floorplan_enabled, bachelor_party_enabled')
       .eq('account_instance_id', instanceId)
       .single<any>();
     setReligionEnabled(data?.religion_enabled ?? true);
     setFloorplanEnabled(data?.floorplan_enabled ?? true);
+    setBachelorPartyEnabled(data?.bachelor_party_enabled ?? true);
   };
 
   // Fetch settings on mount and when accountInstanceId changes
@@ -112,6 +114,7 @@ export default function Sidebar({ open: controlledOpen, setOpen: controlledSetOp
     ...baseSections,
     ...(religionEnabled ? [{ name: 'Religion', href: '/religion', icon: FiUser }] : []),
     ...(floorplanEnabled ? [{ name: 'Floorplan', href: '/floorplan', icon: FiMap }] : []),
+    ...(bachelorPartyEnabled ? [{ name: 'Bachelor Party', href: '/bachelor-party', icon: FiUser }]: []),
   ];
 
   // Add this to force re-render on featureToggleChanged event
