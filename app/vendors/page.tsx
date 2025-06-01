@@ -68,12 +68,13 @@ export default function VendorsPage() {
     fetchAccountInstance();
   }, []);
 
+  // Wrap fetchVendors in useCallback
   const fetchVendors = useCallback(async () => {
     if (!accountInstanceId) return setVendors([]);
     const { data, error } = await supabase.from('vendors').select('*').eq('account_instance_id', accountInstanceId).order('date', { ascending: true });
     if (error) setError('Failed to fetch vendors.');
     else setVendors(data || []);
-  }, [accountInstanceId, supabase]);
+  }, [accountInstanceId]);
 
   useEffect(() => {
     if (accountInstanceId) fetchVendors();

@@ -204,7 +204,7 @@ function BudgetPageInner() {
       }
     }
     setModalLoading(false);
-  }, [supabase]);
+  }, []);
 
   // Wrap fetchBudgets in useCallback
   const fetchBudgets = useCallback(async () => {
@@ -226,7 +226,7 @@ function BudgetPageInner() {
       setBudgets(data || []);
     }
     setLoading(false);
-  }, [accountInstanceId, supabase]);
+  }, [accountInstanceId]);
 
   useEffect(() => {
     fetchBudgets();
@@ -248,10 +248,6 @@ function BudgetPageInner() {
       if (!error && data) setSubEvents(data.map(se => ({ ...se, parentEventId: se.parent_event_id })));
     };
     fetchSubEvents();
-  }, []);
-
-  useEffect(() => {
-    fetchBudgets();
   }, [fetchBudgets]);
 
   useEffect(() => {

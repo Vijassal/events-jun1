@@ -311,7 +311,7 @@ export default function EventsPage() {
     const { data, error } = await supabase.from('events').select('*').eq('account_instance_id', accountInstanceId).order('date', { ascending: true });
     if (error) setEvents([]);
     else setEvents(data || []);
-  }, [accountInstanceId, supabase]);
+  }, [accountInstanceId]);
 
   // Update fetchSubEvents to filter by account_instance_id
   const fetchSubEvents = useCallback(async () => {
@@ -327,7 +327,7 @@ export default function EventsPage() {
         participantLimit: se.participant_limit,
       }))
     );
-  }, [accountInstanceId, supabase]);
+  }, [accountInstanceId]);
 
   // Fetch vendors for the current account_instance_id
   const fetchVendors = useCallback(async () => {
@@ -335,7 +335,7 @@ export default function EventsPage() {
     const { data, error } = await supabase.from('vendors').select('*').eq('account_instance_id', accountInstanceId);
     if (error) setVendors([]);
     else setVendors(data || []);
-  }, [accountInstanceId, supabase]);
+  }, [accountInstanceId]);
 
   useEffect(() => {
     if (accountInstanceId) {
