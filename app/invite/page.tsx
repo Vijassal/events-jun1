@@ -130,9 +130,9 @@ export default function InvitePage() {
   };
 
   useEffect(() => {
-    const move = (e: MouseEvent) => handleResize(e);
-    const up = () => handleResizeEnd();
     if (resizingCol.current) {
+      const move = (e: MouseEvent) => handleResize(e);
+      const up = () => handleResizeEnd();
       window.addEventListener('mousemove', move);
       window.addEventListener('mouseup', up);
       return () => {
@@ -140,7 +140,7 @@ export default function InvitePage() {
         window.removeEventListener('mouseup', up);
       };
     }
-  }, [resizingCol.current]);
+  }, []); // Remove resizingCol.current from dependencies as it's a mutable ref
 
   // Handlers for participant form
   const handleAddClick = () => setShowForm(true);

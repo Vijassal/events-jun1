@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Typography, Button, Paper, Stack, Divider, Dialog, DialogTitle, DialogContent, Tabs, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress, Alert, LinearProgress } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
@@ -173,35 +173,60 @@ function BudgetPageInner() {
     fetchSettingsCurrency();
   }, [accountInstanceId]);
 
-  // Use accountInstanceId for all budget queries
-  const fetchBudgets = async () => {
+  // Refactor fetchModalData to be callable
+  const fetchModalData = useCallback(async (budgetId: string) => {
+    setModalLoading(true);
+    setModalError(null);
+    setPaymentLogs([]);
+    setItemCosts([]);
+    // Fetch payment logs for this budget
+    const { data: payments, error: paymentsError } = await supabase
+      .from('logged_payments')
+      .select('*')
+      .eq('budget_id', budgetId);
+    if (paymentsError) {
+      setModalError(paymentsError.message);
+      setModalLoading(false);
+      return;
+    }
+    setPaymentLogs(payments || []);
+    // Fetch item costs for all payment logs
+    if (payments && payments.length > 0) {
+      const paymentIds = payments.map((p: any) => p.id);
+      const { data: items, error: itemsError } = await supabase
+        .from('logged_item_costs')
+        .select('*')
+        .in('logged_payment_id', paymentIds);
+      if (itemsError) {
+        setModalError(itemsError.message);
+      } else {
+        setItemCosts(items || []);
+      }
+    }
+    setModalLoading(false);
+  }, [supabase]);
+
+  // Wrap fetchBudgets in useCallback
+  const fetchBudgets = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     if (!accountInstanceId) {
-      setAccountInstanceError('No account instance selected.');
-      setBudgets([]);
+      setError('No account instance selected.');
       setLoading(false);
       return;
     }
-    setLoading(true);
-    setError(null);
-    setAccountInstanceError(null);
     const { data, error } = await supabase
       .from('budgets')
       .select('*')
       .eq('account_instance_id', accountInstanceId)
       .order('date', { ascending: false });
-    console.log('Budgets for accountInstanceId:', accountInstanceId, data); // Debug: show budgets fetched
     if (error) {
       setError(error.message);
-      setBudgets([]);
     } else {
-      const mapped = (data || []).map(row => ({
-        ...row,
-        cost: row.cost != null ? row.cost.toString() : '0.00',
-      }));
-      setBudgets(mapped);
+      setBudgets(data || []);
     }
     setLoading(false);
-  };
+  }, [accountInstanceId, supabase]);
 
   useEffect(() => {
     fetchBudgets();
@@ -226,10 +251,15 @@ function BudgetPageInner() {
   }, []);
 
   useEffect(() => {
-    if (modalOpen as boolean && selectedBudget as any) {
-      fetchModalData((selectedBudget as any).id);
+    fetchBudgets();
+  }, [fetchBudgets]);
+
+  useEffect(() => {
+    const shouldFetchModalData = modalOpen && selectedBudget;
+    if (shouldFetchModalData) {
+      fetchModalData(selectedBudget.id);
     }
-  }, [modalOpen as boolean, selectedBudget as any]);
+  }, [modalOpen, selectedBudget, fetchModalData]);
 
   // Handler for View Details
   const handleViewDetails = (id: string) => {
@@ -378,39 +408,6 @@ function BudgetPageInner() {
       fetchBudgets();
     }
     setInlineFormLoading(false);
-  };
-
-  // Refactor fetchModalData to be callable
-  const fetchModalData = async (budgetId: string) => {
-    setModalLoading(true);
-    setModalError(null);
-    setPaymentLogs([]);
-    setItemCosts([]);
-    // Fetch payment logs for this budget
-    const { data: payments, error: paymentsError } = await supabase
-      .from('logged_payments')
-      .select('*')
-      .eq('budget_id', budgetId);
-    if (paymentsError) {
-      setModalError(paymentsError.message);
-      setModalLoading(false);
-      return;
-    }
-    setPaymentLogs(payments || []);
-    // Fetch item costs for all payment logs
-    if (payments && payments.length > 0) {
-      const paymentIds = payments.map((p: any) => p.id);
-      const { data: items, error: itemsError } = await supabase
-        .from('logged_item_costs')
-        .select('*')
-        .in('logged_payment_id', paymentIds);
-      if (itemsError) {
-        setModalError(itemsError.message);
-      } else {
-        setItemCosts(items || []);
-      }
-    }
-    setModalLoading(false);
   };
 
   // Budget columns for DataGrid

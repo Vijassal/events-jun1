@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../src/lib/supabase';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { Button, Stack } from '@mui/material';
@@ -68,9 +68,16 @@ export default function VendorsPage() {
     fetchAccountInstance();
   }, []);
 
+  const fetchVendors = useCallback(async () => {
+    if (!accountInstanceId) return setVendors([]);
+    const { data, error } = await supabase.from('vendors').select('*').eq('account_instance_id', accountInstanceId).order('date', { ascending: true });
+    if (error) setError('Failed to fetch vendors.');
+    else setVendors(data || []);
+  }, [accountInstanceId, supabase]);
+
   useEffect(() => {
     if (accountInstanceId) fetchVendors();
-  }, [accountInstanceId]);
+  }, [accountInstanceId, fetchVendors]);
 
   // DataGrid columns for vendors
   const vendorColumns: GridColDef[] = [
@@ -182,13 +189,6 @@ export default function VendorsPage() {
     setColumnState(newState);
     localStorage.setItem('vendorColumnState', JSON.stringify(newState));
   };
-
-  async function fetchVendors() {
-    if (!accountInstanceId) return setVendors([]);
-    const { data, error } = await supabase.from('vendors').select('*').eq('account_instance_id', accountInstanceId).order('date', { ascending: true });
-    if (error) setError('Failed to fetch vendors.');
-    else setVendors(data || []);
-  }
 
   async function handleVendorSubmit(e: React.FormEvent) {
     e.preventDefault();

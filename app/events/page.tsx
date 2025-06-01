@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../src/lib/supabase';
 
 // Event and Sub-Event Types
@@ -305,26 +305,16 @@ export default function EventsPage() {
     fetchAccountInstance();
   }, []);
 
-  useEffect(() => {
-    if (accountInstanceId) {
-      fetchEvents();
-      fetchSubEvents();
-      fetchVendors();
-    }
-    console.log('accountInstanceId:', accountInstanceId); // Debug
-  }, [accountInstanceId]);
-
   // Update fetchEvents to filter by account_instance_id
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     if (!accountInstanceId) return setEvents([]);
     const { data, error } = await supabase.from('events').select('*').eq('account_instance_id', accountInstanceId).order('date', { ascending: true });
     if (error) setEvents([]);
     else setEvents(data || []);
-    console.log('Fetched events:', data, 'Error:', error); // Debug
-  };
+  }, [accountInstanceId, supabase]);
 
   // Update fetchSubEvents to filter by account_instance_id
-  const fetchSubEvents = async () => {
+  const fetchSubEvents = useCallback(async () => {
     if (!accountInstanceId) return setSubEvents([]);
     const { data, error } = await supabase.from('sub_events').select('*').eq('account_instance_id', accountInstanceId);
     if (error) setSubEvents([]);
@@ -337,17 +327,23 @@ export default function EventsPage() {
         participantLimit: se.participant_limit,
       }))
     );
-    console.log('Fetched subEvents:', data, 'Error:', error); // Debug
-  };
+  }, [accountInstanceId, supabase]);
 
   // Fetch vendors for the current account_instance_id
-  const fetchVendors = async () => {
+  const fetchVendors = useCallback(async () => {
     if (!accountInstanceId) return setVendors([]);
     const { data, error } = await supabase.from('vendors').select('*').eq('account_instance_id', accountInstanceId);
     if (error) setVendors([]);
     else setVendors(data || []);
-    console.log('Fetched vendors:', data, 'Error:', error); // Debug
-  };
+  }, [accountInstanceId, supabase]);
+
+  useEffect(() => {
+    if (accountInstanceId) {
+      fetchEvents();
+      fetchSubEvents();
+      fetchVendors();
+    }
+  }, [accountInstanceId, fetchEvents, fetchSubEvents, fetchVendors]);
 
   // Edit event logic
   const handleEditEvent = (eventId: string) => {
