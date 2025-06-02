@@ -23,23 +23,47 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    console.log('Login attempt started');
     setError('');
     setSuccess('');
     setLoading(true);
 
-    const { data, error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    setLoading(false);
+      console.log('Sign in response:', { 
+        success: !signInError, 
+        hasSession: !!data?.session,
+        sessionId: data?.session?.access_token?.substring(0, 10) + '...'
+      });
 
-    if (signInError) {
-      setError(signInError.message);
-      return;
+      if (signInError) {
+        console.error('Sign in error:', signInError);
+        setError(signInError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (data?.session) {
+        console.log('Session obtained, checking session state...');
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        console.log('Current session state:', { 
+          exists: !!currentSession,
+          sessionId: currentSession?.access_token?.substring(0, 10) + '...'
+        });
+        
+        console.log('Redirecting to dashboard...');
+        router.push('/dashboard');
+      }
+    } catch (err) {
+      console.error('Unexpected error:', err);
+      setError('An unexpected error occurred');
+    } finally {
+      setLoading(false);
     }
-
-    router.push('/dashboard');
   };
 
   return (

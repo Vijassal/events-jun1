@@ -5,11 +5,16 @@ import Sidebar from './Sidebar';
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { FeatureToggleProvider } from '../context/FeatureToggleContext';
+import { usePathname } from 'next/navigation';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const pathname = usePathname();
+
+  // Check if current route is an auth route
+  const isAuthRoute = pathname.startsWith('/auth/');
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -27,8 +32,13 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   if (loading) return null;
 
+  // If it's an auth route, don't show the layout
+  if (isAuthRoute) {
+    return <main className="min-h-screen">{children}</main>;
+  }
+
+  // If not an auth route and not signed in, the middleware will handle the redirect
   if (!session) {
-    // Not signed in: don't render sidebar or user bar
     return <main className="min-h-screen">{children}</main>;
   }
 

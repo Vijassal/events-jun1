@@ -341,20 +341,67 @@ function BudgetPageInner() {
     localStorage.setItem('budgetColumnState', JSON.stringify(newState));
   };
 
-  const handleInlineFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInlineFormChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    if (name === 'cost' || name === 'conversion_rate') {
-      const newCost = name === 'cost' ? value : inlineForm.cost;
-      const newRate = name === 'conversion_rate' ? parseFloat(value) || 1 : inlineForm.conversion_rate;
+    console.log('Form change:', { name, value, currentForm: inlineForm });
+    
+    if (name === 'cost') {
+      console.log('Cost changed:', { value, currentRate: inlineForm.conversion_rate });
       setInlineForm({
         ...inlineForm,
         [name]: value,
-        converted_amount: newCost && newRate ? (parseFloat(newCost) * newRate).toFixed(2) : '',
+        converted_amount: value && inlineForm.conversion_rate ? (parseFloat(value) * inlineForm.conversion_rate).toFixed(2) : '',
       });
+    } else if (name === 'currency') {
+      console.log('Currency changed:', { newCurrency: value, settingsCurrency });
+      setInlineConversionLoading(true);
+      try {
+        const rate = await fetchConversionRateUtil(value, settingsCurrency, supabase);
+        console.log('Fetched conversion rate:', { from: value, to: settingsCurrency, rate });
+        setInlineForm({
+          ...inlineForm,
+          [name]: value,
+          conversion_rate: rate,
+          converted_amount: inlineForm.cost ? (parseFloat(inlineForm.cost) * rate).toFixed(2) : '',
+        });
+      } catch (error) {
+        console.error('Error fetching conversion rate:', error);
+      } finally {
+        setInlineConversionLoading(false);
+      }
     } else {
       setInlineForm({ ...inlineForm, [name]: value });
     }
   };
+
+  // Add effect to update conversion rate when currency changes
+  useEffect(() => {
+    const updateConversionRate = async () => {
+      if (
+        inlineForm.currency &&
+        settingsCurrency &&
+        inlineForm.currency !== settingsCurrency
+      ) {
+        setInlineConversionLoading(true);
+        try {
+          const rate = await fetchConversionRateUtil(inlineForm.currency, settingsCurrency, supabase);
+          setInlineForm(f => ({
+            ...f,
+            conversion_rate: rate,
+            converted_amount: f.cost ? (parseFloat(f.cost) * rate).toFixed(2) : '',
+          }));
+        } catch (error) {
+          console.error('Error fetching conversion rate:', error);
+        } finally {
+          setInlineConversionLoading(false);
+        }
+      } else if (inlineForm.currency === settingsCurrency) {
+        setInlineForm(f => ({ ...f, conversion_rate: 1 }));
+      }
+    };
+    updateConversionRate();
+  }, [inlineForm.currency, settingsCurrency]);
+
   const handleInlineAddTag = () => {
     if (inlineTagInput.trim() && !inlineForm.tags.includes(inlineTagInput.trim())) {
       setInlineForm({ ...inlineForm, tags: [...inlineForm.tags, inlineTagInput.trim()] });
@@ -567,7 +614,7 @@ function BudgetPageInner() {
     if (accountInstanceId) {
       fetchBudgets();
     }
-  }, [accountInstanceId]);
+  }, [accountInstanceId, fetchBudgets]);
 
   // Show loading or error if fetching account instance
   if (fetchingAccountInstance) {
