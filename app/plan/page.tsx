@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, ChangeEvent, FormEvent, useEffect } from "react";
 import { supabase } from '../../src/lib/supabase';
-import { Panel, PanelGroup } from 'react-resizable-panels';
+import TopToolbar from '../../src/components/TopToolbar';
 
 const TABS = [
   { key: "agenda", label: "Agenda" },
@@ -344,7 +344,7 @@ function SectionFilter({ title, items, selectedIds, onToggle, colors, onColorCha
   );
 }
 
-export default function PlanningPage() {
+export default function PlanPage() {
   const [tab, setTab] = useState("agenda");
   const today = getToday();
   const [view, setView] = useState<"day" | "week" | "month" | "year">("month");
@@ -1245,387 +1245,407 @@ export default function PlanningPage() {
     localStorage.setItem('columnsToShow', String(columnsToShow));
   }, [columnsToShow]);
 
+  const navItems = [
+    { label: 'Plan', href: '/plan', active: true },
+  ];
+  const tempButtons = [
+    { label: 'Temp1' },
+    { label: 'Temp2' },
+    { label: 'Temp3' },
+  ];
+
   return (
-    <div
-      style={{
-        width: '100%',
-        marginTop: 32,
-        marginBottom: 32,
-        paddingLeft: 32,
-        paddingRight: 32,
-        boxSizing: 'border-box',
-      }}
-    >
-      <h2 style={{ fontSize: 22, fontWeight: 700, color: '#7c3aed', marginTop: 0, marginBottom: 8, letterSpacing: 0.2 }}>
-        Plan
-      </h2>
-      <div className="flex gap-6 items-start">
-        <div className="flex-1">
-          <div className="flex gap-2 mb-6 border-b">
-            {TABS.map(t => (
-              <button
-                key={t.key}
-                className={`px-4 py-2 font-semibold border-b-2 transition-colors ${tab === t.key ? "border-blue-600 text-blue-700" : "border-transparent text-gray-600 hover:text-blue-600"}`}
-                onClick={() => setTab(t.key)}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-          {tab === "calendar" && (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex gap-2">
-                  <button
-                    className="px-2 py-1 rounded hover:bg-gray-100 border text-black bg-white"
-                    onClick={handlePrev}
-                    title="Previous"
-                  >
-                    &#8592;
-                  </button>
-                  <button
-                    className="px-2 py-1 rounded hover:bg-gray-100 border text-black bg-white"
-                    onClick={handleNext}
-                    title="Next"
-                  >
-                    &#8594;
-                  </button>
-                </div>
-                <div className="flex gap-2">
-                  {VIEW_OPTIONS.map(opt => (
-                    <button
-                      key={opt.key}
-                      className={`px-2 py-1 rounded ${view === opt.key ? "bg-blue-600 text-white" : "bg-white text-black hover:bg-gray-100"}`}
-                      onClick={() => setView(opt.key as any)}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-                <div className="font-bold text-lg">
-                  {view === "month" && `${months[current.month]} ${current.year}`}
-                  {view === "year" && current.year}
-                  {view === "day" && `${months[current.month]} ${today.date}, ${current.year}`}
-                  {view === "week" && `Week of ${months[current.month]} ${today.date}, ${current.year}`}
-                </div>
-              </div>
-              <div>
-                {view === "month" && renderMonthView()}
-                {view === "year" && renderYearView()}
-                {view === "day" && renderDayView()}
-                {view === "week" && renderWeekView()}
-              </div>
-              <div className="mt-8">
-                <div className="font-bold mb-2 text-lg">Itinerary Items for this view</div>
-                <div className="space-y-1">
-                  {getVisibleTasks().length === 0 && <div className="text-gray-500">No items for this view.</div>}
-                  {getVisibleTasks().map((t, idx) => (
-                    <div key={idx} className="bg-white rounded border px-3 py-2 flex items-center gap-2 shadow-sm cursor-pointer" onClick={() => setSelectedTask(t)}>
-                      <span className="font-mono text-xs text-gray-500">{t.date}</span>
-                      <span className="text-gray-800">{t.title}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+    <>
+      <TopToolbar
+        navItems={navItems}
+        tempButtons={tempButtons}
+        searchButton={{ onClick: () => alert('Search clicked!') }}
+      />
+      <div
+        style={{
+          width: '100%',
+          marginTop: 32,
+          marginBottom: 32,
+          paddingLeft: 32,
+          paddingRight: 32,
+          boxSizing: 'border-box',
+        }}
+      >
+        <div className="flex gap-6 items-start">
+          <div className="flex-1">
+            <div className="flex gap-2 mb-6 border-b">
+              {TABS.map(t => (
+                <button
+                  key={t.key}
+                  className={`px-4 py-2 font-semibold border-b-2 transition-colors ${tab === t.key ? "border-blue-600 text-blue-700" : "border-transparent text-gray-600 hover:text-blue-600"}`}
+                  onClick={() => setTab(t.key)}
+                >
+                  {t.label}
+                </button>
+              ))}
             </div>
-          )}
-          {tab === "upcoming" && (
-            <div className="space-y-2">
-              <div className="font-bold mb-2 text-lg">Upcoming Events & Sub-Events (next 90 days)</div>
-              {(() => {
-                const now = new Date();
-                const in90Days = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
-                const upcomingEvents = events.filter(ev => {
-                  const evDate = new Date(ev.date);
-                  return evDate >= now && evDate <= in90Days;
-                });
-                const upcomingSubEvents = subEvents.filter(se => {
-                  const seDate = new Date(se.date);
-                  return seDate >= now && seDate <= in90Days;
-                });
-                if (upcomingEvents.length === 0 && upcomingSubEvents.length === 0) {
-                  return <div className="text-gray-500">No upcoming events or sub-events.</div>;
-                }
-                return <>
-                  {upcomingEvents.map((ev, idx) => (
-                    <div key={"event-"+idx} className="bg-white rounded border px-3 py-2 flex items-center gap-2 shadow-sm">
+            {tab === "calendar" && (
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex gap-2">
+                    <button
+                      className="px-2 py-1 rounded hover:bg-gray-100 border text-black bg-white"
+                      onClick={handlePrev}
+                      title="Previous"
+                    >
+                      &#8592;
+                    </button>
+                    <button
+                      className="px-2 py-1 rounded hover:bg-gray-100 border text-black bg-white"
+                      onClick={handleNext}
+                      title="Next"
+                    >
+                      &#8594;
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    {VIEW_OPTIONS.map(opt => (
+                      <button
+                        key={opt.key}
+                        className={`px-2 py-1 rounded ${view === opt.key ? "bg-blue-600 text-white" : "bg-white text-black hover:bg-gray-100"}`}
+                        onClick={() => setView(opt.key as any)}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="font-bold text-lg">
+                    {view === "month" && `${months[current.month]} ${current.year}`}
+                    {view === "year" && current.year}
+                    {view === "day" && `${months[current.month]} ${today.date}, ${current.year}`}
+                    {view === "week" && `Week of ${months[current.month]} ${today.date}, ${current.year}`}
+                  </div>
+                </div>
+                <div>
+                  {view === "month" && renderMonthView()}
+                  {view === "year" && renderYearView()}
+                  {view === "day" && renderDayView()}
+                  {view === "week" && renderWeekView()}
+                </div>
+                <div className="mt-8">
+                  <div className="font-bold mb-2 text-lg">Itinerary Items for this view</div>
+                  <div className="space-y-1">
+                    {getVisibleTasks().length === 0 && <div className="text-gray-500">No items for this view.</div>}
+                    {getVisibleTasks().map((t, idx) => (
+                      <div key={idx} className="bg-white rounded border px-3 py-2 flex items-center gap-2 shadow-sm cursor-pointer" onClick={() => setSelectedTask(t)}>
+                        <span className="font-mono text-xs text-gray-500">{t.date}</span>
+                        <span className="text-gray-800">{t.title}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+            {tab === "upcoming" && (
+              <div className="space-y-2">
+                <div className="font-bold mb-2 text-lg">Upcoming Events & Sub-Events (next 90 days)</div>
+                {(() => {
+                  const now = new Date();
+                  const in90Days = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+                  const upcomingEvents = events.filter(ev => {
+                    const evDate = new Date(ev.date);
+                    return evDate >= now && evDate <= in90Days;
+                  });
+                  const upcomingSubEvents = subEvents.filter(se => {
+                    const seDate = new Date(se.date);
+                    return seDate >= now && seDate <= in90Days;
+                  });
+                  if (upcomingEvents.length === 0 && upcomingSubEvents.length === 0) {
+                    return <div className="text-gray-500">No upcoming events or sub-events.</div>;
+                  }
+                  return <>
+                    {upcomingEvents.map((ev, idx) => (
+                      <div key={"event-"+idx} className="bg-white rounded border px-3 py-2 flex items-center gap-2 shadow-sm">
+                        <span className="font-mono text-xs text-blue-700">Event</span>
+                        <span className="font-mono text-xs text-gray-500">{ev.date}</span>
+                        <span className="text-gray-800">{ev.name}</span>
+                      </div>
+                    ))}
+                    {upcomingSubEvents.map((se, idx) => (
+                      <div key={"subevent-"+idx} className="bg-white rounded border px-3 py-2 flex items-center gap-2 shadow-sm">
+                        <span className="font-mono text-xs text-purple-700">Sub-Event</span>
+                        <span className="font-mono text-xs text-gray-500">{se.date}</span>
+                        <span className="text-gray-800">{se.name}</span>
+                      </div>
+                    ))}
+                  </>;
+                })()}
+              </div>
+            )}
+            {tab === "past" && (
+              <div className="space-y-2">
+                <div className="font-bold mb-2 text-lg">Past Events</div>
+                {(() => {
+                  const now = new Date();
+                  const pastEvents = events.filter(ev => new Date(ev.date) < now);
+                  if (pastEvents.length === 0) {
+                    return <div className="text-gray-500">No past events.</div>;
+                  }
+                  return pastEvents.map((ev, idx) => (
+                    <div key={idx} className="bg-white rounded border px-3 py-2 flex items-center gap-2 shadow-sm">
                       <span className="font-mono text-xs text-blue-700">Event</span>
                       <span className="font-mono text-xs text-gray-500">{ev.date}</span>
                       <span className="text-gray-800">{ev.name}</span>
                     </div>
-                  ))}
-                  {upcomingSubEvents.map((se, idx) => (
-                    <div key={"subevent-"+idx} className="bg-white rounded border px-3 py-2 flex items-center gap-2 shadow-sm">
-                      <span className="font-mono text-xs text-purple-700">Sub-Event</span>
-                      <span className="font-mono text-xs text-gray-500">{se.date}</span>
-                      <span className="text-gray-800">{se.name}</span>
+                  ));
+                })()}
+              </div>
+            )}
+            {tab === "agenda" && (
+              <div>
+                <div className="flex items-center justify-between mb-4 w-full">
+                  {/* Centered itinerary view buttons */}
+                  <div className="flex-1 flex justify-center">
+                    <div className="flex gap-2 ml-20">
+                      <button
+                        className={`px-3 py-1 rounded font-semibold border ${agendaViewType === 'event' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-600 border-blue-200'}`}
+                        onClick={() => setAgendaViewType('event')}
+                      >
+                        Event Itinerary
+                      </button>
+                      <button
+                        className={`px-3 py-1 rounded font-semibold border ${agendaViewType === 'vendor' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-green-600 border-green-200'}`}
+                        onClick={() => setAgendaViewType('vendor')}
+                      >
+                        Vendor Itinerary
+                      </button>
+                      <button
+                        className={`px-3 py-1 rounded font-semibold border ${agendaViewType === 'both' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-purple-600 border-purple-200'}`}
+                        onClick={() => setAgendaViewType('both')}
+                      >
+                        Both
+                      </button>
                     </div>
-                  ))}
-                </>;
-              })()}
-            </div>
-          )}
-          {tab === "past" && (
-            <div className="space-y-2">
-              <div className="font-bold mb-2 text-lg">Past Events</div>
-              {(() => {
-                const now = new Date();
-                const pastEvents = events.filter(ev => new Date(ev.date) < now);
-                if (pastEvents.length === 0) {
-                  return <div className="text-gray-500">No past events.</div>;
-                }
-                return pastEvents.map((ev, idx) => (
-                  <div key={idx} className="bg-white rounded border px-3 py-2 flex items-center gap-2 shadow-sm">
-                    <span className="font-mono text-xs text-blue-700">Event</span>
-                    <span className="font-mono text-xs text-gray-500">{ev.date}</span>
-                    <span className="text-gray-800">{ev.name}</span>
                   </div>
-                ));
-              })()}
-            </div>
-          )}
-          {tab === "agenda" && (
-            <div>
-              <div className="flex items-center justify-between mb-4 w-full">
-                {/* Centered itinerary view buttons */}
-                <div className="flex-1 flex justify-center">
-                  <div className="flex gap-2 ml-20">
+                  {/* Show Filters button on the right */}
+                  {!showFilters && (
                     <button
-                      className={`px-3 py-1 rounded font-semibold border ${agendaViewType === 'event' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-600 border-blue-200'}`}
-                      onClick={() => setAgendaViewType('event')}
+                      className="ml-2 px-4 py-2 bg-blue-600 text-white rounded font-semibold shadow-lg hover:bg-blue-700 whitespace-nowrap"
+                      onClick={() => setShowFilters(true)}
                     >
-                      Event Itinerary
+                      Show Filters
                     </button>
-                    <button
-                      className={`px-3 py-1 rounded font-semibold border ${agendaViewType === 'vendor' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-green-600 border-green-200'}`}
-                      onClick={() => setAgendaViewType('vendor')}
-                    >
-                      Vendor Itinerary
-                    </button>
-                    <button
-                      className={`px-3 py-1 rounded font-semibold border ${agendaViewType === 'both' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-purple-600 border-purple-200'}`}
-                      onClick={() => setAgendaViewType('both')}
-                    >
-                      Both
-                    </button>
-                  </div>
+                  )}
                 </div>
-                {/* Show Filters button on the right */}
-                {!showFilters && (
-                  <button
-                    className="ml-2 px-4 py-2 bg-blue-600 text-white rounded font-semibold shadow-lg hover:bg-blue-700 whitespace-nowrap"
-                    onClick={() => setShowFilters(true)}
-                  >
-                    Show Filters
-                  </button>
+                {['event', 'vendor', 'both'].includes(agendaViewType) && (
+                  <div className="sticky top-0 z-20 bg-white flex items-center justify-center gap-3 py-2 mb-2 shadow-sm rounded">
+                    <button
+                      className="rounded px-2 py-1 hover:bg-gray-100 text-lg"
+                      onClick={() => setAgendaViewDate(addDays(agendaViewDate, -1))}
+                      aria-label="Previous day"
+                    >
+                      &#8592;
+                    </button>
+                    <span className="font-bold text-base sm:text-lg px-2">
+                      {columnsToShow === 1
+                        ? formatDateString(addDays(agendaViewDate, 1))
+                        : `${formatDateString(addDays(agendaViewDate, 1))} – ${formatDateString(addDays(agendaViewDate, columnsToShow))}`}
+                    </span>
+                    <button
+                      className="rounded px-2 py-1 hover:bg-gray-100 text-lg"
+                      onClick={() => setAgendaViewDate(addDays(agendaViewDate, 1))}
+                      aria-label="Next day"
+                    >
+                      &#8594;
+                    </button>
+                    <input
+                      type="date"
+                      className="ml-2 border rounded px-2 py-1 text-sm"
+                      value={agendaViewDate}
+                      onChange={e => setAgendaViewDate(e.target.value)}
+                      aria-label="Pick date"
+                      style={{ maxWidth: 140 }}
+                    />
+                    <button
+                      className="ml-2 px-2 py-1 rounded bg-blue-100 text-blue-700 font-semibold hover:bg-blue-200"
+                      onClick={() => setAgendaViewDate(getTodayDateString())}
+                    >
+                      Today
+                    </button>
+                  </div>
+                )}
+                {agendaViewType === 'both' ? (
+                  <div style={{ display: 'flex', gap: 16 }}>
+                    <div style={{ flex: 1, minWidth: 200, display: 'flex', flexDirection: 'column' }}>
+                      <div className="font-semibold text-blue-700 mb-2 text-center">Event Itinerary</div>
+                      {renderAgendaDayView('event')}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 200, display: 'flex', flexDirection: 'column' }}>
+                      <div className="font-semibold text-green-700 mb-2 text-center">Vendor Itinerary</div>
+                      {renderAgendaDayView('vendor')}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ minWidth: 200 }}>
+                    {renderAgendaDayView(agendaViewType)}
+                  </div>
                 )}
               </div>
-              {['event', 'vendor', 'both'].includes(agendaViewType) && (
-                <div className="sticky top-0 z-20 bg-white flex items-center justify-center gap-3 py-2 mb-2 shadow-sm rounded">
-                  <button
-                    className="rounded px-2 py-1 hover:bg-gray-100 text-lg"
-                    onClick={() => setAgendaViewDate(addDays(agendaViewDate, -1))}
-                    aria-label="Previous day"
-                  >
-                    &#8592;
-                  </button>
-                  <span className="font-bold text-base sm:text-lg px-2">
-                    {columnsToShow === 1
-                      ? formatDateString(addDays(agendaViewDate, 1))
-                      : `${formatDateString(addDays(agendaViewDate, 1))} – ${formatDateString(addDays(agendaViewDate, columnsToShow))}`}
-                  </span>
-                  <button
-                    className="rounded px-2 py-1 hover:bg-gray-100 text-lg"
-                    onClick={() => setAgendaViewDate(addDays(agendaViewDate, 1))}
-                    aria-label="Next day"
-                  >
-                    &#8594;
-                  </button>
-                  <input
-                    type="date"
-                    className="ml-2 border rounded px-2 py-1 text-sm"
-                    value={agendaViewDate}
-                    onChange={e => setAgendaViewDate(e.target.value)}
-                    aria-label="Pick date"
-                    style={{ maxWidth: 140 }}
-                  />
-                  <button
-                    className="ml-2 px-2 py-1 rounded bg-blue-100 text-blue-700 font-semibold hover:bg-blue-200"
-                    onClick={() => setAgendaViewDate(getTodayDateString())}
-                  >
-                    Today
-                  </button>
-                </div>
-              )}
-              {agendaViewType === 'both' ? (
-                <div style={{ display: 'flex', gap: 16 }}>
-                  <div style={{ flex: 1, minWidth: 200, display: 'flex', flexDirection: 'column' }}>
-                    <div className="font-semibold text-blue-700 mb-2 text-center">Event Itinerary</div>
-                    {renderAgendaDayView('event')}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 200, display: 'flex', flexDirection: 'column' }}>
-                    <div className="font-semibold text-green-700 mb-2 text-center">Vendor Itinerary</div>
-                    {renderAgendaDayView('vendor')}
-                  </div>
-                </div>
-              ) : (
-                <div style={{ minWidth: 200 }}>
-                  {renderAgendaDayView(agendaViewType)}
-                </div>
-              )}
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
-      {showFilters && (
-        <div className="fixed right-0 top-0 h-full w-96 bg-white border-l shadow-lg z-40 p-6 flex flex-col gap-6">
-          <button
-            className="absolute left-0 top-4 -translate-x-full px-3 py-1 bg-blue-600 text-white rounded-l font-semibold shadow-lg hover:bg-blue-700"
-            onClick={() => setShowFilters(false)}
-          >
-            Hide Filters
-          </button>
-          {/* Modern search bar */}
-          <input
-            className="mb-4 px-3 py-2 rounded shadow border w-full focus:outline-none focus:ring-2 focus:ring-blue-400"
-            placeholder="Search events, sub-events, vendors..."
-            value={filterSearch}
-            onChange={e => setFilterSearch(e.target.value)}
+        {showFilters && (
+          <div className="fixed right-0 top-0 h-full w-96 bg-white border-l shadow-lg z-40 p-6 flex flex-col gap-6">
+            <button
+              className="absolute left-0 top-4 -translate-x-full px-3 py-1 bg-blue-600 text-white rounded-l font-semibold shadow-lg hover:bg-blue-700"
+              onClick={() => setShowFilters(false)}
+            >
+              Hide Filters
+            </button>
+            {/* Modern search bar */}
+            <input
+              className="mb-4 px-3 py-2 rounded shadow border w-full focus:outline-none focus:ring-2 focus:ring-blue-400"
+              placeholder="Search events, sub-events, vendors..."
+              value={filterSearch}
+              onChange={e => setFilterSearch(e.target.value)}
+            />
+            {/* Agenda Filters Card (only for agenda tab) */}
+            {tab === 'agenda' && (
+              <div className="bg-gray-50 rounded-xl shadow p-4 flex flex-col gap-4">
+                <div className="font-bold text-lg mb-2">Agenda Filters</div>
+                {/* Events Section */}
+                <SectionFilter
+                  title="Events"
+                  items={events}
+                  selectedIds={selectedEventIds}
+                  onToggle={(id: any) => setAndPersistSelectedEventIds(selectedEventIds.includes(id) ? selectedEventIds.filter((eid: any) => eid !== id) : [...selectedEventIds, id])}
+                  colors={eventColors}
+                  onColorChange={(id: any, color: any) => setEventColors((c: any) => { const updated = { ...c, [id]: color }; localStorage.setItem('eventColors', JSON.stringify(updated)); return updated; })}
+                  filterSearch={filterSearch}
+                  showMoreLimit={5}
+                />
+                {/* Sub-Events Section */}
+                <SectionFilter
+                  title="Sub-Events"
+                  items={subEvents}
+                  selectedIds={selectedSubEventIds}
+                  onToggle={(id: any) => setAndPersistSelectedSubEventIds(selectedSubEventIds.includes(id) ? selectedSubEventIds.filter((sid: any) => sid !== id) : [...selectedSubEventIds, id])}
+                  colors={subEventColors}
+                  onColorChange={(id: any, color: any) => setSubEventColors((c: any) => { const updated = { ...c, [id]: color }; localStorage.setItem('subEventColors', JSON.stringify(updated)); return updated; })}
+                  filterSearch={filterSearch}
+                  showMoreLimit={5}
+                />
+                {/* Vendors Section */}
+                <SectionFilter
+                  title="Vendors"
+                  items={vendors}
+                  selectedIds={selectedVendorIds}
+                  onToggle={(id: any) => setAndPersistSelectedVendorIds(selectedVendorIds.includes(id) ? selectedVendorIds.filter((vid: any) => vid !== id) : [...selectedVendorIds, id])}
+                  colors={vendorColors}
+                  onColorChange={(id: any, color: any) => setVendorColors((c: any) => { const updated = { ...c, [id]: color }; localStorage.setItem('vendorColors', JSON.stringify(updated)); return updated; })}
+                  filterSearch={filterSearch}
+                  showMoreLimit={5}
+                />
+                {/* Start time dropdown */}
+                <div className="flex gap-2 items-center mt-2">
+                  <span className="font-semibold text-gray-700">Start time:</span>
+                  <select
+                    className="border rounded px-2 py-1 text-sm"
+                    value={agendaStartTime}
+                    onChange={e => setAgendaStartTime(Number(e.target.value))}
+                  >
+                    {timeOptions.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+                {/* Columns to Show dropdown */}
+                <div className="flex gap-2 items-center mt-2">
+                  <span className="font-semibold text-gray-700">Columns to show:</span>
+                  <select
+                    className="border rounded px-2 py-1 text-sm"
+                    value={columnsToShow}
+                    onChange={e => setColumnsToShow(Number(e.target.value))}
+                  >
+                    {[1,2,3,4,5,6,7].map(n => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+            {/* Divider */}
+            <hr className="my-4" />
+            {/* Calendar Filters Section (only for calendar tab) */}
+            {tab === 'calendar' && (
+              <div className="bg-gray-50 rounded-xl shadow p-4 flex flex-col gap-4">
+                <div className="font-bold text-lg mb-2 flex items-center gap-2">📅 Calendar Filters</div>
+                <div className="mb-2">
+                  <div className="font-semibold mb-1">Day</div>
+                  <select
+                    className="border rounded bg-white text-black px-2 py-1 w-full"
+                    value={filterDay ?? ""}
+                    onChange={e => setFilterDay(e.target.value ? Number(e.target.value) : null)}
+                  >
+                    <option value="">All Days</option>
+                    {Array.from({ length: daysInActiveMonth }, (_, i) => i + 1).map(day => (
+                      <option key={day} value={day}>{day}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="mb-2">
+                  <div className="font-semibold mb-1">Month</div>
+                  <select
+                    className="border rounded bg-white text-black px-2 py-1 w-full"
+                    value={filterMonth ?? current.month}
+                    onChange={e => setFilterMonth(Number(e.target.value))}
+                  >
+                    {months.map((m, idx) => (
+                      <option key={m} value={idx}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="mb-2">
+                  <div className="font-semibold mb-1">Year</div>
+                  <select
+                    className="border rounded bg-white text-black px-2 py-1 w-full"
+                    value={filterYear ?? current.year}
+                    onChange={e => setFilterYear(Number(e.target.value))}
+                  >
+                    {yearRange.map(y => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+            {/* Clear Filters Button */}
+            <button
+              className="mt-4 px-3 py-2 bg-gray-200 text-black rounded font-semibold hover:bg-gray-300 w-full"
+              onClick={() => { setFilterDay(null); setFilterMonth(null); setFilterYear(null); setAndPersistSelectedEventIds([]); setAndPersistSelectedSubEventIds([]); setAndPersistSelectedVendorIds([]); }}
+            >
+              Clear Filters
+            </button>
+          </div>
+        )}
+        {modal.open && (
+          <TaskModal
+            open={modal.open}
+            onClose={() => setModal({ open: false, date: '' })}
+            onSave={task => {
+              setTasks(tsk => [...tsk, task]);
+              setModal({ open: false, date: '' });
+            }}
+            date={modal.date}
           />
-          {/* Agenda Filters Card (only for agenda tab) */}
-          {tab === 'agenda' && (
-            <div className="bg-gray-50 rounded-xl shadow p-4 flex flex-col gap-4">
-              <div className="font-bold text-lg mb-2">Agenda Filters</div>
-              {/* Events Section */}
-              <SectionFilter
-                title="Events"
-                items={events}
-                selectedIds={selectedEventIds}
-                onToggle={(id: any) => setAndPersistSelectedEventIds(selectedEventIds.includes(id) ? selectedEventIds.filter((eid: any) => eid !== id) : [...selectedEventIds, id])}
-                colors={eventColors}
-                onColorChange={(id: any, color: any) => setEventColors((c: any) => { const updated = { ...c, [id]: color }; localStorage.setItem('eventColors', JSON.stringify(updated)); return updated; })}
-                filterSearch={filterSearch}
-                showMoreLimit={5}
-              />
-              {/* Sub-Events Section */}
-              <SectionFilter
-                title="Sub-Events"
-                items={subEvents}
-                selectedIds={selectedSubEventIds}
-                onToggle={(id: any) => setAndPersistSelectedSubEventIds(selectedSubEventIds.includes(id) ? selectedSubEventIds.filter((sid: any) => sid !== id) : [...selectedSubEventIds, id])}
-                colors={subEventColors}
-                onColorChange={(id: any, color: any) => setSubEventColors((c: any) => { const updated = { ...c, [id]: color }; localStorage.setItem('subEventColors', JSON.stringify(updated)); return updated; })}
-                filterSearch={filterSearch}
-                showMoreLimit={5}
-              />
-              {/* Vendors Section */}
-              <SectionFilter
-                title="Vendors"
-                items={vendors}
-                selectedIds={selectedVendorIds}
-                onToggle={(id: any) => setAndPersistSelectedVendorIds(selectedVendorIds.includes(id) ? selectedVendorIds.filter((vid: any) => vid !== id) : [...selectedVendorIds, id])}
-                colors={vendorColors}
-                onColorChange={(id: any, color: any) => setVendorColors((c: any) => { const updated = { ...c, [id]: color }; localStorage.setItem('vendorColors', JSON.stringify(updated)); return updated; })}
-                filterSearch={filterSearch}
-                showMoreLimit={5}
-              />
-              {/* Start time dropdown */}
-              <div className="flex gap-2 items-center mt-2">
-                <span className="font-semibold text-gray-700">Start time:</span>
-                <select
-                  className="border rounded px-2 py-1 text-sm"
-                  value={agendaStartTime}
-                  onChange={e => setAgendaStartTime(Number(e.target.value))}
-                >
-                  {timeOptions.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-              {/* Columns to Show dropdown */}
-              <div className="flex gap-2 items-center mt-2">
-                <span className="font-semibold text-gray-700">Columns to show:</span>
-                <select
-                  className="border rounded px-2 py-1 text-sm"
-                  value={columnsToShow}
-                  onChange={e => setColumnsToShow(Number(e.target.value))}
-                >
-                  {[1,2,3,4,5,6,7].map(n => (
-                    <option key={n} value={n}>{n}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          )}
-          {/* Divider */}
-          <hr className="my-4" />
-          {/* Calendar Filters Section (only for calendar tab) */}
-          {tab === 'calendar' && (
-            <div className="bg-gray-50 rounded-xl shadow p-4 flex flex-col gap-4">
-              <div className="font-bold text-lg mb-2 flex items-center gap-2">📅 Calendar Filters</div>
-              <div className="mb-2">
-                <div className="font-semibold mb-1">Day</div>
-                <select
-                  className="border rounded bg-white text-black px-2 py-1 w-full"
-                  value={filterDay ?? ""}
-                  onChange={e => setFilterDay(e.target.value ? Number(e.target.value) : null)}
-                >
-                  <option value="">All Days</option>
-                  {Array.from({ length: daysInActiveMonth }, (_, i) => i + 1).map(day => (
-                    <option key={day} value={day}>{day}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="mb-2">
-                <div className="font-semibold mb-1">Month</div>
-                <select
-                  className="border rounded bg-white text-black px-2 py-1 w-full"
-                  value={filterMonth ?? current.month}
-                  onChange={e => setFilterMonth(Number(e.target.value))}
-                >
-                  {months.map((m, idx) => (
-                    <option key={m} value={idx}>{m}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="mb-2">
-                <div className="font-semibold mb-1">Year</div>
-                <select
-                  className="border rounded bg-white text-black px-2 py-1 w-full"
-                  value={filterYear ?? current.year}
-                  onChange={e => setFilterYear(Number(e.target.value))}
-                >
-                  {yearRange.map(y => (
-                    <option key={y} value={y}>{y}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          )}
-          {/* Clear Filters Button */}
-          <button
-            className="mt-4 px-3 py-2 bg-gray-200 text-black rounded font-semibold hover:bg-gray-300 w-full"
-            onClick={() => { setFilterDay(null); setFilterMonth(null); setFilterYear(null); setAndPersistSelectedEventIds([]); setAndPersistSelectedSubEventIds([]); setAndPersistSelectedVendorIds([]); }}
-          >
-            Clear Filters
-          </button>
-        </div>
-      )}
-      {modal.open && (
-        <TaskModal
-          open={modal.open}
-          onClose={() => setModal({ open: false, date: '' })}
-          onSave={task => {
-            setTasks(tsk => [...tsk, task]);
-            setModal({ open: false, date: '' });
-          }}
-          date={modal.date}
+        )}
+        {selectedTask && (
+          <TaskDetailModal task={selectedTask} onClose={() => setSelectedTask(null)} />
+        )}
+      </div>
+      {tooltipPos && hoveredBlockId && (
+        <BlockTooltip
+          item={getAgendaTimelineData().find(item => item.id === hoveredBlockId)}
+          x={tooltipPos.x}
+          y={tooltipPos.y}
         />
       )}
-      {selectedTask && (
-        <TaskDetailModal task={selectedTask} onClose={() => setSelectedTask(null)} />
-      )}
-    </div>
+    </>
   );
 }
 
