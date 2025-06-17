@@ -99,14 +99,14 @@ function updateAllRates() {
         var delError, _loop_1, _i, topCurrencies_1, base, fs, path, tsPath;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, supabase_1.supabase.from('exchange_rates').delete().eq('date', today)];
+                case 0: return [4 /*yield*/, supabase_1.supabase.from('exchange_rates').delete().neq('from_currency', '')];
                 case 1:
                     delError = (_a.sent()).error;
                     if (delError) {
-                        console.error('Error deleting today\'s rates:', delError.message);
+                        console.error('Error deleting all rates:', delError.message);
                     }
                     else {
-                        console.log('Deleted all rates for today before upserting.');
+                        console.log('Deleted all rates from the table.');
                     }
                     _loop_1 = function (base) {
                         var rates, upserts, error;
@@ -135,14 +135,14 @@ function updateAllRates() {
                                     });
                                     if (upserts.length === 0)
                                         return [2 /*return*/, "continue"];
-                                    return [4 /*yield*/, supabase_1.supabase.from('exchange_rates').upsert(upserts, { onConflict: 'from_currency,to_currency,date' })];
+                                    return [4 /*yield*/, supabase_1.supabase.from('exchange_rates').insert(upserts)];
                                 case 2:
                                     error = (_b.sent()).error;
                                     if (error) {
-                                        console.error("[".concat(base, "] Supabase upsert error:"), error.message);
+                                        console.error("[".concat(base, "] Supabase insert error:"), error.message);
                                     }
                                     else {
-                                        console.log("[".concat(base, "] Upserted ").concat(upserts.length, " rates."));
+                                        console.log("[".concat(base, "] Inserted ").concat(upserts.length, " rates."));
                                     }
                                     return [2 /*return*/];
                             }

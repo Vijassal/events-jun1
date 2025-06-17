@@ -1,0 +1,6 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+If something has too many errors or the same error more than once, create tracing and console.logs to isolate the issue and do multiple tests to see if you can catch the root of the problem. You will need to review terminal results, console errors and any other errors that can be found. 

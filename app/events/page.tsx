@@ -1,6 +1,8 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../src/lib/supabase';
+import TopToolbar from '../../src/components/TopToolbar';
+import { usePathname } from 'next/navigation';
 
 // Event and Sub-Event Types
 interface EventData {
@@ -686,222 +688,239 @@ export default function EventsPage() {
     flexDirection: 'column',
     gap: 32,
   };
+
+  const pathname = usePathname();
+  const navItems = [
+    { label: 'Events', href: '/events', active: true },
+  ];
+  const tempButtons = [
+    { label: 'Temp1' },
+    { label: 'Temp2' },
+    { label: 'Temp3' },
+  ];
+
   return (
-    <div style={pageWrapperStyle}>
-      <h2 style={{ fontSize: 22, fontWeight: 700, color: '#7c3aed', marginBottom: 8, letterSpacing: 0.2, marginTop: 0 }}>Events</h2>
-      {/* Tabs */}
-      <div style={{
-        ...tabRowStyle,
-        maxWidth: '100vw',
-        width: '100vw',
-        marginLeft: 0,
-        marginRight: 0,
-        paddingLeft: 0,
-        paddingRight: 0,
-      }}>
-        <button style={activeTab === 'diagram' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('diagram')}>All Events</button>
-        <button style={activeTab === 'addEvent' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('addEvent')}>Add Event</button>
-        <button style={activeTab === 'addSubEvent' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('addSubEvent')}>Add Sub-Event</button>
-      </div>
-      {/* Tab Content */}
-      {activeTab === 'diagram' && (
-        <>
-          {/* Bubble/tag list above diagram */}
-          <div style={{ marginBottom: 56, minHeight: 60, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100vw', maxWidth: '100vw', padding: 0 }}>
-            <div style={{ fontWeight: 700, color: '#7c3aed', fontSize: 15, marginBottom: 6 }}>Events</div>
-            <div style={{ ...tagRowStyle, minHeight: 36, justifyContent: 'center', width: '100vw', maxWidth: '100vw', padding: 0 }}>
-              {events.length === 0 ? <span style={{ color: '#a1a1aa', fontSize: 13 }}>No events yet.</span> : events.map(ev => (
-                <span key={ev.id} style={tagStyle}>{ev.name}</span>
-              ))}
+    <>
+      <TopToolbar
+        navItems={navItems}
+        tempButtons={tempButtons}
+        searchButton={{ onClick: () => alert('Search clicked!') }}
+      />
+      <div style={pageWrapperStyle}>
+        {/* Tabs */}
+        <div style={{
+          ...tabRowStyle,
+          maxWidth: '100vw',
+          width: '100vw',
+          marginLeft: 0,
+          marginRight: 0,
+          paddingLeft: 0,
+          paddingRight: 0,
+        }}>
+          <button style={activeTab === 'diagram' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('diagram')}>All Events</button>
+          <button style={activeTab === 'addEvent' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('addEvent')}>Add Event</button>
+          <button style={activeTab === 'addSubEvent' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('addSubEvent')}>Add Sub-Event</button>
+        </div>
+        {/* Tab Content */}
+        {activeTab === 'diagram' && (
+          <>
+            {/* Bubble/tag list above diagram */}
+            <div style={{ marginBottom: 56, minHeight: 60, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100vw', maxWidth: '100vw', padding: 0 }}>
+              <div style={{ fontWeight: 700, color: '#7c3aed', fontSize: 15, marginBottom: 6 }}>Events</div>
+              <div style={{ ...tagRowStyle, minHeight: 36, justifyContent: 'center', width: '100vw', maxWidth: '100vw', padding: 0 }}>
+                {events.length === 0 ? <span style={{ color: '#a1a1aa', fontSize: 13 }}>No events yet.</span> : events.map(ev => (
+                  <span key={ev.id} style={tagStyle}>{ev.name}</span>
+                ))}
+              </div>
+              <div style={{ fontWeight: 700, color: '#7c3aed', fontSize: 15, marginBottom: 6, marginTop: 12 }}>Sub-Events</div>
+              <div style={{ ...tagRowStyle, minHeight: 36, justifyContent: 'center', width: '100vw', maxWidth: '100vw', padding: 0 }}>
+                {subEvents.length === 0 ? <span style={{ color: '#a1a1aa', fontSize: 13 }}>No sub-events yet.</span> : subEvents.map(se => (
+                  <span key={se.id} style={tagSubStyle}>{se.name}</span>
+                ))}
+              </div>
             </div>
-            <div style={{ fontWeight: 700, color: '#7c3aed', fontSize: 15, marginBottom: 6, marginTop: 12 }}>Sub-Events</div>
-            <div style={{ ...tagRowStyle, minHeight: 36, justifyContent: 'center', width: '100vw', maxWidth: '100vw', padding: 0 }}>
-              {subEvents.length === 0 ? <span style={{ color: '#a1a1aa', fontSize: 13 }}>No sub-events yet.</span> : subEvents.map(se => (
-                <span key={se.id} style={tagSubStyle}>{se.name}</span>
-              ))}
-            </div>
-          </div>
-          <div style={{ marginTop: 32, marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 32, alignItems: 'center', width: '100vw', maxWidth: '100vw', boxSizing: 'border-box', padding: 0 }}>
-            {events.length === 0 ? (
-              <span style={{ color: '#a1a1aa', fontSize: 16 }}>No events to display.</span>
-            ) : (
-              events.map((ev, idx) => {
-                const subList = subEvents.filter(se => se.parentEventId === ev.id && se.account_instance_id === accountInstanceId);
-                return (
-                  <React.Fragment key={ev.id}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 32, justifyContent: 'center', width: '100vw', maxWidth: '100vw', flexWrap: 'wrap', boxSizing: 'border-box', padding: 0 }}>
-                      {/* Event Box */}
-                      <div
-                        style={{
-                          background: '#ede9fe',
-                          border: '1.5px solid #a78bfa',
-                          borderRadius: 12,
-                          padding: '18px 28px',
-                          minWidth: 180,
-                          fontWeight: 700,
-                          color: '#7c3aed',
-                          fontSize: 17,
-                          boxShadow: '0 2px 8px rgba(124, 58, 237, 0.06)',
-                          position: 'relative',
-                          cursor: 'pointer',
-                          transition: 'box-shadow 0.2s',
-                        }}
-                        onClick={() => handleOpenEditModal(ev)}
-                        title="Click to edit or delete"
-                      >
-                        {ev.name}
-                        <div style={{ color: '#6b7280', fontWeight: 400, fontSize: 14, marginTop: 4 }}>
-                          {ev.date}, {formatTime12hr(ev.startTime)} - {formatTime12hr(ev.endTime)}
-                        </div>
-                        <div style={{ color: '#a1a1aa', fontWeight: 400, fontSize: 13 }}>{ev.location} | {ev.type} | {ev.category}</div>
-                      </div>
-                      {/* Connection and Sub-Events */}
-                      {subList.length > 0 && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-                          {/* Vertical line */}
-                          <div style={{ width: 18, display: 'flex', justifyContent: 'center' }}>
-                            <div style={{ width: 2, height: 48 * subList.length, background: '#a78bfa', marginTop: 8 }} />
+            <div style={{ marginTop: 32, marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 32, alignItems: 'center', width: '100vw', maxWidth: '100vw', boxSizing: 'border-box', padding: 0 }}>
+              {events.length === 0 ? (
+                <span style={{ color: '#a1a1aa', fontSize: 16 }}>No events to display.</span>
+              ) : (
+                events.map((ev, idx) => {
+                  const subList = subEvents.filter(se => se.parentEventId === ev.id && se.account_instance_id === accountInstanceId);
+                  return (
+                    <React.Fragment key={ev.id}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 32, justifyContent: 'center', width: '100vw', maxWidth: '100vw', flexWrap: 'wrap', boxSizing: 'border-box', padding: 0 }}>
+                        {/* Event Box */}
+                        <div
+                          style={{
+                            background: '#ede9fe',
+                            border: '1.5px solid #a78bfa',
+                            borderRadius: 12,
+                            padding: '18px 28px',
+                            minWidth: 180,
+                            fontWeight: 700,
+                            color: '#7c3aed',
+                            fontSize: 17,
+                            boxShadow: '0 2px 8px rgba(124, 58, 237, 0.06)',
+                            position: 'relative',
+                            cursor: 'pointer',
+                            transition: 'box-shadow 0.2s',
+                          }}
+                          onClick={() => handleOpenEditModal(ev)}
+                          title="Click to edit or delete"
+                        >
+                          {ev.name}
+                          <div style={{ color: '#6b7280', fontWeight: 400, fontSize: 14, marginTop: 4 }}>
+                            {ev.date}, {formatTime12hr(ev.startTime)} - {formatTime12hr(ev.endTime)}
                           </div>
-                          {/* Sub-Event Boxes */}
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-                            {subList.map(se => (
-                              <div
-                                key={se.id}
-                                style={{
-                                  background: '#f3f4f6',
-                                  border: '1.5px solid #a1a1aa',
-                                  borderRadius: 10,
-                                  padding: '12px 20px',
-                                  minWidth: 140,
-                                  fontWeight: 600,
-                                  color: '#4b5563',
-                                  fontSize: 15,
-                                  boxShadow: '0 1px 4px rgba(124, 58, 237, 0.04)',
-                                  cursor: 'pointer',
-                                  transition: 'box-shadow 0.2s',
-                                }}
-                                onClick={() => handleOpenEditSubModal(se)}
-                                title="Click to edit or delete"
-                              >
-                                {se.name}
-                                <div style={{ color: '#6b7280', fontWeight: 400, fontSize: 13, marginTop: 2 }}>
-                                  {se.date}, {formatTime12hr(se.startTime)} - {formatTime12hr(se.endTime)}
+                          <div style={{ color: '#a1a1aa', fontWeight: 400, fontSize: 13 }}>{ev.location} | {ev.type} | {ev.category}</div>
+                        </div>
+                        {/* Connection and Sub-Events */}
+                        {subList.length > 0 && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+                            {/* Vertical line */}
+                            <div style={{ width: 18, display: 'flex', justifyContent: 'center' }}>
+                              <div style={{ width: 2, height: 48 * subList.length, background: '#a78bfa', marginTop: 8 }} />
+                            </div>
+                            {/* Sub-Event Boxes */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                              {subList.map(se => (
+                                <div
+                                  key={se.id}
+                                  style={{
+                                    background: '#f3f4f6',
+                                    border: '1.5px solid #a1a1aa',
+                                    borderRadius: 10,
+                                    padding: '12px 20px',
+                                    minWidth: 140,
+                                    fontWeight: 600,
+                                    color: '#4b5563',
+                                    fontSize: 15,
+                                    boxShadow: '0 1px 4px rgba(124, 58, 237, 0.04)',
+                                    cursor: 'pointer',
+                                    transition: 'box-shadow 0.2s',
+                                  }}
+                                  onClick={() => handleOpenEditSubModal(se)}
+                                  title="Click to edit or delete"
+                                >
+                                  {se.name}
+                                  <div style={{ color: '#6b7280', fontWeight: 400, fontSize: 13, marginTop: 2 }}>
+                                    {se.date}, {formatTime12hr(se.startTime)} - {formatTime12hr(se.endTime)}
+                                  </div>
+                                  <div style={{ color: '#a1a1aa', fontWeight: 400, fontSize: 12 }}>{se.location} | {se.type} | {se.category}</div>
                                 </div>
-                                <div style={{ color: '#a1a1aa', fontWeight: 400, fontSize: 12 }}>{se.location} | {se.type} | {se.category}</div>
-                              </div>
-                            ))}
+                              ))}
+                            </div>
                           </div>
-                        </div>
+                        )}
+                      </div>
+                      {/* Divider between event groups */}
+                      {idx < events.length - 1 && (
+                        <div style={{ borderTop: '1.5px solid #e5e7eb', margin: '32px 0 0 0', width: '100vw', maxWidth: '100vw' }} />
                       )}
-                    </div>
-                    {/* Divider between event groups */}
-                    {idx < events.length - 1 && (
-                      <div style={{ borderTop: '1.5px solid #e5e7eb', margin: '32px 0 0 0', width: '100vw', maxWidth: '100vw' }} />
-                    )}
-                  </React.Fragment>
-                );
-              })
-            )}
+                    </React.Fragment>
+                  );
+                })
+              )}
+            </div>
+          </>
+        )}
+        {activeTab === 'addEvent' && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100vw', maxWidth: '100vw', padding: 0 }}>
+            <form style={{ ...formStyle, maxWidth: 520, width: '100%' }} onSubmit={handleEventSubmit}>
+              <h2 style={{ fontSize: 17, fontWeight: 700, color: '#7c3aed', marginBottom: 8 }}>{editingEventId ? 'Edit Event' : 'Add Event'}</h2>
+              {eventError && <div style={errorStyle}>{eventError}</div>}
+              {eventSuccess && <div style={successStyle}>{eventSuccess}</div>}
+              <label style={labelStyle}>Name *</label>
+              <input style={inputStyle} name="name" value={eventForm.name} onChange={handleEventChange} placeholder="Event Name" />
+              <label style={labelStyle}>Date *</label>
+              <input style={inputStyle} name="date" type="date" value={eventForm.date} onChange={handleEventChange} />
+              <label style={labelStyle}>Start Time *</label>
+              <input style={inputStyle} name="startTime" type="time" value={eventForm.startTime} onChange={handleEventChange} />
+              <label style={labelStyle}>End Time *</label>
+              <input style={inputStyle} name="endTime" type="time" value={eventForm.endTime} onChange={handleEventChange} />
+              <label style={labelStyle}>Location *</label>
+              <input style={inputStyle} name="location" value={eventForm.location} onChange={handleEventChange} placeholder="Location" />
+              <label style={labelStyle}>Type</label>
+              <input style={inputStyle} name="type" value={eventForm.type} onChange={handleEventChange} placeholder="Type" />
+              <label style={labelStyle}>Category</label>
+              <input style={inputStyle} name="category" value={eventForm.category} onChange={handleEventChange} placeholder="Category" />
+              <label style={labelStyle}>Participant Limit</label>
+              <input style={inputStyle} name="participantLimit" type="number" min="1" value={eventForm.participantLimit} onChange={handleEventChange} placeholder="Participant Limit" />
+              <label style={labelStyle}>Tags</label>
+              <input style={inputStyle} name="tags" value={eventForm.tags} onChange={handleEventChange} placeholder="Tags (comma separated)" />
+              <button style={buttonStyle} type="submit">{editingEventId ? 'Update Event' : 'Add Event'}</button>
+            </form>
           </div>
-        </>
-      )}
-      {activeTab === 'addEvent' && (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100vw', maxWidth: '100vw', padding: 0 }}>
-          <form style={{ ...formStyle, maxWidth: 520, width: '100%' }} onSubmit={handleEventSubmit}>
-            <h2 style={{ fontSize: 17, fontWeight: 700, color: '#7c3aed', marginBottom: 8 }}>{editingEventId ? 'Edit Event' : 'Add Event'}</h2>
-            {eventError && <div style={errorStyle}>{eventError}</div>}
-            {eventSuccess && <div style={successStyle}>{eventSuccess}</div>}
-            <label style={labelStyle}>Name *</label>
-            <input style={inputStyle} name="name" value={eventForm.name} onChange={handleEventChange} placeholder="Event Name" />
-            <label style={labelStyle}>Date *</label>
-            <input style={inputStyle} name="date" type="date" value={eventForm.date} onChange={handleEventChange} />
-            <label style={labelStyle}>Start Time *</label>
-            <input style={inputStyle} name="startTime" type="time" value={eventForm.startTime} onChange={handleEventChange} />
-            <label style={labelStyle}>End Time *</label>
-            <input style={inputStyle} name="endTime" type="time" value={eventForm.endTime} onChange={handleEventChange} />
-            <label style={labelStyle}>Location *</label>
-            <input style={inputStyle} name="location" value={eventForm.location} onChange={handleEventChange} placeholder="Location" />
-            <label style={labelStyle}>Type</label>
-            <input style={inputStyle} name="type" value={eventForm.type} onChange={handleEventChange} placeholder="Type" />
-            <label style={labelStyle}>Category</label>
-            <input style={inputStyle} name="category" value={eventForm.category} onChange={handleEventChange} placeholder="Category" />
-            <label style={labelStyle}>Participant Limit</label>
-            <input style={inputStyle} name="participantLimit" type="number" min="1" value={eventForm.participantLimit} onChange={handleEventChange} placeholder="Participant Limit" />
-            <label style={labelStyle}>Tags</label>
-            <input style={inputStyle} name="tags" value={eventForm.tags} onChange={handleEventChange} placeholder="Tags (comma separated)" />
-            <button style={buttonStyle} type="submit">{editingEventId ? 'Update Event' : 'Add Event'}</button>
-          </form>
-        </div>
-      )}
-      {activeTab === 'addSubEvent' && (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100vw', maxWidth: '100vw', padding: 0 }}>
-          <form style={{ ...formStyle, maxWidth: 520, width: '100%' }} onSubmit={handleSubEventSubmit}>
-            <h2 style={{ fontSize: 17, fontWeight: 700, color: '#7c3aed', marginBottom: 8 }}>Add Sub-Event</h2>
-            {events.length === 0 ? (
-              <div style={errorStyle}>Please add an Event before adding a Sub-Event.</div>
-            ) : null}
-            {subEventError && <div style={errorStyle}>{subEventError}</div>}
-            {subEventSuccess && <div style={successStyle}>{subEventSuccess}</div>}
-            <label style={labelStyle}>Parent Event *</label>
-            <select
-              style={{ ...inputStyle, background: '#f9fafb' }}
-              name="parentEventId"
-              value={subEventForm.parentEventId}
-              onChange={handleSubEventChange}
-              disabled={events.length === 0}
-            >
-              <option value="">Select Event</option>
-              {events.map(ev => (
-                <option key={ev.id} value={ev.id}>{ev.name}</option>
-              ))}
-            </select>
-            <label style={labelStyle}>Name *</label>
-            <input style={inputStyle} name="name" value={subEventForm.name} onChange={handleSubEventChange} placeholder="Sub-Event Name" disabled={events.length === 0} />
-            <label style={labelStyle}>Date *</label>
-            <input style={inputStyle} name="date" type="date" value={subEventForm.date} onChange={handleSubEventChange} disabled={events.length === 0} />
-            <label style={labelStyle}>Start Time *</label>
-            <input style={inputStyle} name="startTime" type="time" value={subEventForm.startTime} onChange={handleSubEventChange} disabled={events.length === 0} />
-            <label style={labelStyle}>End Time *</label>
-            <input style={inputStyle} name="endTime" type="time" value={subEventForm.endTime} onChange={handleSubEventChange} disabled={events.length === 0} />
-            <label style={labelStyle}>Location *</label>
-            <input style={inputStyle} name="location" value={subEventForm.location} onChange={handleSubEventChange} placeholder="Location" disabled={events.length === 0} />
-            <label style={labelStyle}>Type *</label>
-            <input style={inputStyle} name="type" value={subEventForm.type} onChange={handleSubEventChange} placeholder="Type" disabled={events.length === 0} />
-            <label style={labelStyle}>Category *</label>
-            <input style={inputStyle} name="category" value={subEventForm.category} onChange={handleSubEventChange} placeholder="Category" disabled={events.length === 0} />
-            <label style={labelStyle}>Participant Limit *</label>
-            <input style={inputStyle} name="participantLimit" type="number" min="1" value={subEventForm.participantLimit} onChange={handleSubEventChange} placeholder="Participant Limit" disabled={events.length === 0} />
-            <label style={labelStyle}>Tags</label>
-            <input style={inputStyle} name="tags" value={subEventForm.tags} onChange={handleSubEventChange} placeholder="Tags (comma separated)" disabled={events.length === 0} />
-            <button style={buttonStyle} type="submit" disabled={events.length === 0}>Add Sub-Event</button>
-          </form>
-        </div>
-      )}
-      {/* Render the edit modal */}
-      <EditEventModal
-        open={editModalOpen}
-        event={editEvent}
-        onClose={() => setEditModalOpen(false)}
-        onUpdate={handleEditUpdate}
-        onDelete={handleEditDelete}
-        errorMsg={editError}
-        successMsg={editSuccess}
-        onChange={handleEditChange}
-        loading={editLoading}
-      />
-      {/* Render the edit sub-event modal */}
-      <EditSubEventModal
-        open={editSubModalOpen}
-        subEvent={editSubEvent}
-        onClose={() => setEditSubModalOpen(false)}
-        onUpdate={handleEditSubUpdate}
-        onDelete={handleEditSubDelete}
-        errorMsg={editSubError}
-        successMsg={editSubSuccess}
-        onChange={handleEditSubChange}
-        loading={editSubLoading}
-        parentEvents={events}
-      />
-    </div>
+        )}
+        {activeTab === 'addSubEvent' && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100vw', maxWidth: '100vw', padding: 0 }}>
+            <form style={{ ...formStyle, maxWidth: 520, width: '100%' }} onSubmit={handleSubEventSubmit}>
+              <h2 style={{ fontSize: 17, fontWeight: 700, color: '#7c3aed', marginBottom: 8 }}>Add Sub-Event</h2>
+              {events.length === 0 ? (
+                <div style={errorStyle}>Please add an Event before adding a Sub-Event.</div>
+              ) : null}
+              {subEventError && <div style={errorStyle}>{subEventError}</div>}
+              {subEventSuccess && <div style={successStyle}>{subEventSuccess}</div>}
+              <label style={labelStyle}>Parent Event *</label>
+              <select
+                style={{ ...inputStyle, background: '#f9fafb' }}
+                name="parentEventId"
+                value={subEventForm.parentEventId}
+                onChange={handleSubEventChange}
+                disabled={events.length === 0}
+              >
+                <option value="">Select Event</option>
+                {events.map(ev => (
+                  <option key={ev.id} value={ev.id}>{ev.name}</option>
+                ))}
+              </select>
+              <label style={labelStyle}>Name *</label>
+              <input style={inputStyle} name="name" value={subEventForm.name} onChange={handleSubEventChange} placeholder="Sub-Event Name" disabled={events.length === 0} />
+              <label style={labelStyle}>Date *</label>
+              <input style={inputStyle} name="date" type="date" value={subEventForm.date} onChange={handleSubEventChange} disabled={events.length === 0} />
+              <label style={labelStyle}>Start Time *</label>
+              <input style={inputStyle} name="startTime" type="time" value={subEventForm.startTime} onChange={handleSubEventChange} disabled={events.length === 0} />
+              <label style={labelStyle}>End Time *</label>
+              <input style={inputStyle} name="endTime" type="time" value={subEventForm.endTime} onChange={handleSubEventChange} disabled={events.length === 0} />
+              <label style={labelStyle}>Location *</label>
+              <input style={inputStyle} name="location" value={subEventForm.location} onChange={handleSubEventChange} placeholder="Location" disabled={events.length === 0} />
+              <label style={labelStyle}>Type *</label>
+              <input style={inputStyle} name="type" value={subEventForm.type} onChange={handleSubEventChange} placeholder="Type" disabled={events.length === 0} />
+              <label style={labelStyle}>Category *</label>
+              <input style={inputStyle} name="category" value={subEventForm.category} onChange={handleSubEventChange} placeholder="Category" disabled={events.length === 0} />
+              <label style={labelStyle}>Participant Limit *</label>
+              <input style={inputStyle} name="participantLimit" type="number" min="1" value={subEventForm.participantLimit} onChange={handleSubEventChange} placeholder="Participant Limit" disabled={events.length === 0} />
+              <label style={labelStyle}>Tags</label>
+              <input style={inputStyle} name="tags" value={subEventForm.tags} onChange={handleSubEventChange} placeholder="Tags (comma separated)" disabled={events.length === 0} />
+              <button style={buttonStyle} type="submit" disabled={events.length === 0}>Add Sub-Event</button>
+            </form>
+          </div>
+        )}
+        {/* Render the edit modal */}
+        <EditEventModal
+          open={editModalOpen}
+          event={editEvent}
+          onClose={() => setEditModalOpen(false)}
+          onUpdate={handleEditUpdate}
+          onDelete={handleEditDelete}
+          errorMsg={editError}
+          successMsg={editSuccess}
+          onChange={handleEditChange}
+          loading={editLoading}
+        />
+        {/* Render the edit sub-event modal */}
+        <EditSubEventModal
+          open={editSubModalOpen}
+          subEvent={editSubEvent}
+          onClose={() => setEditSubModalOpen(false)}
+          onUpdate={handleEditSubUpdate}
+          onDelete={handleEditSubDelete}
+          errorMsg={editSubError}
+          successMsg={editSubSuccess}
+          onChange={handleEditSubChange}
+          loading={editSubLoading}
+          parentEvents={events}
+        />
+      </div>
+    </>
   );
 } 

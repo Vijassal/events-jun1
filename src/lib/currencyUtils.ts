@@ -26,7 +26,7 @@ export const fetchConversionRate = async (
     if (data && data.rate) {
       rate = data.rate;
     } else {
-      // 2. Fetch from API
+      // 2. Fetch from API as fallback
       try {
         const res = await fetch(`https://api.exchangerate.host/convert?from=${from}&to=${to}`);
         const apiData = await res.json();
@@ -35,10 +35,6 @@ export const fetchConversionRate = async (
         } else if (apiData && apiData.result) {
           rate = apiData.result;
         }
-        // 3. Upsert into Supabase (update if exists, insert if not)
-        await supabase.from('exchange_rates').upsert([
-          { from_currency: from, to_currency: to, rate, date: today }
-        ], { onConflict: 'from_currency,to_currency,date' });
       } catch (e) {
         rate = 1;
       }

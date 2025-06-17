@@ -5,6 +5,7 @@ import { supabase } from '../../src/lib/supabase';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import { Typography, Box } from '@mui/material';
 import { KeyboardArrowDown, KeyboardArrowRight } from '@mui/icons-material';
+import TopToolbar from '../../src/components/TopToolbar';
 
 const ParticipantForm = dynamic(() => import('../../src/components/participants/ParticipantForm'), { ssr: false });
 
@@ -992,8 +993,22 @@ export default function InvitePage() {
     );
   };
 
+  const navItems = [
+    { label: 'Invite', href: '/invite', active: true },
+  ];
+  const tempButtons = [
+    { label: 'Temp1' },
+    { label: 'Temp2' },
+    { label: 'Temp3' },
+  ];
+
   return (
     <>
+      <TopToolbar
+        navItems={navItems}
+        tempButtons={tempButtons}
+        searchButton={{ onClick: () => alert('Search clicked!') }}
+      />
       {/* Stats Config Modal */}
       {showStatsConfig && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.18)', zIndex: 2100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1032,9 +1047,6 @@ export default function InvitePage() {
         paddingRight: 32,
         boxSizing: 'border-box',
       }}>
-        <h2 style={{ fontSize: 22, fontWeight: 700, color: '#7c3aed', marginTop: 0, marginBottom: 0, letterSpacing: 0.2 }}>
-          Invite Management
-        </h2>
         {/* Locked padding below title */}
         <div style={{ width: '100%', height: 32, minHeight: 32, maxHeight: 32, pointerEvents: 'none', userSelect: 'none' }} />
         {/* Stat Blocks Gap/Area, centered and fixed height only if stat blocks exist */}

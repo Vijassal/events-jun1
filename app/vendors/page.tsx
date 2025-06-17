@@ -5,6 +5,7 @@ import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { Button, Stack } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import TopToolbar from '../../src/components/TopToolbar';
 
 interface VendorData {
   id: string;
@@ -329,90 +330,105 @@ export default function VendorsPage() {
     boxSizing: 'border-box',
   };
 
+  const navItems = [
+    { label: 'Vendors', href: '/vendors', active: true },
+  ];
+  const tempButtons = [
+    { label: 'Temp1' },
+    { label: 'Temp2' },
+    { label: 'Temp3' },
+  ];
+
   return (
-    <div style={pageWrapperStyle}>
-      <h2 style={{ fontSize: 22, fontWeight: 700, color: '#7c3aed', marginBottom: 8, letterSpacing: 0.2 }}>Vendors</h2>
-      <form style={formStyle} onSubmit={handleVendorSubmit} id="vendor-form">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 18 }}>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <label style={labelStyle}>Name *</label>
-            <input style={inputStyle} name="name" value={vendorForm.name} onChange={handleChange} placeholder="Vendor Name" />
+    <>
+      <TopToolbar
+        navItems={navItems}
+        tempButtons={tempButtons}
+        searchButton={{ onClick: () => alert('Search clicked!') }}
+      />
+      <div style={pageWrapperStyle}>
+        <form style={formStyle} onSubmit={handleVendorSubmit} id="vendor-form">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 18 }}>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <label style={labelStyle}>Name *</label>
+              <input style={inputStyle} name="name" value={vendorForm.name} onChange={handleChange} placeholder="Vendor Name" />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <label style={labelStyle}>Date *</label>
+              <input style={inputStyle} name="date" type="date" value={vendorForm.date} onChange={handleChange} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <label style={labelStyle}>Start Time *</label>
+              <input style={inputStyle} name="start_time" type="time" value={vendorForm.start_time} onChange={handleChange} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <label style={labelStyle}>End Time</label>
+              <input style={inputStyle} name="end_time" type="time" value={vendorForm.end_time} onChange={handleChange} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <label style={labelStyle}>Location</label>
+              <input style={inputStyle} name="location" value={vendorForm.location} onChange={handleChange} placeholder="Location" />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <label style={labelStyle}>Type</label>
+              <input style={inputStyle} name="type" value={vendorForm.type} onChange={handleChange} placeholder="Type" />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <label style={labelStyle}>Category</label>
+              <input style={inputStyle} name="category" value={vendorForm.category} onChange={handleChange} placeholder="Category" />
+            </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <label style={labelStyle}>Date *</label>
-            <input style={inputStyle} name="date" type="date" value={vendorForm.date} onChange={handleChange} />
+          {error && <div style={errorStyle}>{error}</div>}
+          {success && <div style={successStyle}>{success}</div>}
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 6 }}>
+            <button style={buttonStyle} type="submit">{editingVendorId ? 'Update Vendor' : 'Add Vendor'}</button>
+            {editingVendorId && (
+              <button
+                type="button"
+                style={{ ...buttonStyle, background: '#f3f4f6', color: '#7c3aed', boxShadow: 'none', border: '1px solid #a78bfa' }}
+                onClick={() => {
+                  setEditingVendorId(null);
+                  setVendorForm({ name: '', date: '', start_time: '', end_time: '', location: '', type: '', category: '' });
+                  setError('');
+                  setSuccess('');
+                }}
+              >
+                Cancel
+              </button>
+            )}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <label style={labelStyle}>Start Time *</label>
-            <input style={inputStyle} name="start_time" type="time" value={vendorForm.start_time} onChange={handleChange} />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <label style={labelStyle}>End Time</label>
-            <input style={inputStyle} name="end_time" type="time" value={vendorForm.end_time} onChange={handleChange} />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <label style={labelStyle}>Location</label>
-            <input style={inputStyle} name="location" value={vendorForm.location} onChange={handleChange} placeholder="Location" />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <label style={labelStyle}>Type</label>
-            <input style={inputStyle} name="type" value={vendorForm.type} onChange={handleChange} placeholder="Type" />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <label style={labelStyle}>Category</label>
-            <input style={inputStyle} name="category" value={vendorForm.category} onChange={handleChange} placeholder="Category" />
-          </div>
+        </form>
+        <div style={{ width: '100%', overflowX: 'auto', marginTop: 32 }}>
+          <DataGrid
+            rows={vendors}
+            columns={columnsWithHandler}
+            getRowId={(row) => row.id}
+            initialState={columnState ? { ...columnState, pagination: { paginationModel: { pageSize: 5, page: 0 } } } : { pagination: { paginationModel: { pageSize: 5, page: 0 } } }}
+            pageSizeOptions={[5, 10, 25, 50, 100]}
+            disableRowSelectionOnClick
+            onColumnOrderChange={handleColumnOrderChange}
+            onColumnVisibilityModelChange={handleColumnVisibilityModelChange}
+            onColumnWidthChange={handleColumnWidthChange}
+            isCellEditable={isCellEditable}
+            processRowUpdate={handleInlineEditChange}
+            onProcessRowUpdateError={(error) => {
+              setError('Failed to update vendor: ' + (error?.message || error));
+            }}
+            sx={{
+              border: 'none',
+              fontSize: 16,
+              '& .MuiDataGrid-columnHeaders': { bgcolor: '#ede9fe', color: '#7c3aed', fontWeight: 700 },
+              '& .MuiDataGrid-row': { bgcolor: '#fff' },
+              '& .MuiDataGrid-row.Mui-selected, & .MuiDataGrid-row[data-rowindex][data-id].Mui-selected': { bgcolor: '#f3e8ff !important' },
+              '& .MuiDataGrid-row.editing-row': { bgcolor: '#f3e8ff !important' },
+              '& .MuiDataGrid-footerContainer': { bgcolor: '#ede9fe' },
+              '& .center-cell': { textAlign: 'center', justifyContent: 'center', display: 'flex', alignItems: 'center' },
+              width: '100%',
+            }}
+            getRowClassName={(params) => (inlineEditRowId === params.id ? 'editing-row' : '')}
+          />
         </div>
-        {error && <div style={errorStyle}>{error}</div>}
-        {success && <div style={successStyle}>{success}</div>}
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 6 }}>
-          <button style={buttonStyle} type="submit">{editingVendorId ? 'Update Vendor' : 'Add Vendor'}</button>
-          {editingVendorId && (
-            <button
-              type="button"
-              style={{ ...buttonStyle, background: '#f3f4f6', color: '#7c3aed', boxShadow: 'none', border: '1px solid #a78bfa' }}
-              onClick={() => {
-                setEditingVendorId(null);
-                setVendorForm({ name: '', date: '', start_time: '', end_time: '', location: '', type: '', category: '' });
-                setError('');
-                setSuccess('');
-              }}
-            >
-              Cancel
-            </button>
-          )}
-        </div>
-      </form>
-      <div style={{ width: '100%', overflowX: 'auto', marginTop: 32 }}>
-        <DataGrid
-          rows={vendors}
-          columns={columnsWithHandler}
-          getRowId={(row) => row.id}
-          initialState={columnState ? { ...columnState, pagination: { paginationModel: { pageSize: 5, page: 0 } } } : { pagination: { paginationModel: { pageSize: 5, page: 0 } } }}
-          pageSizeOptions={[5, 10, 25, 50, 100]}
-          disableRowSelectionOnClick
-          onColumnOrderChange={handleColumnOrderChange}
-          onColumnVisibilityModelChange={handleColumnVisibilityModelChange}
-          onColumnWidthChange={handleColumnWidthChange}
-          isCellEditable={isCellEditable}
-          processRowUpdate={handleInlineEditChange}
-          onProcessRowUpdateError={(error) => {
-            setError('Failed to update vendor: ' + (error?.message || error));
-          }}
-          sx={{
-            border: 'none',
-            fontSize: 16,
-            '& .MuiDataGrid-columnHeaders': { bgcolor: '#ede9fe', color: '#7c3aed', fontWeight: 700 },
-            '& .MuiDataGrid-row': { bgcolor: '#fff' },
-            '& .MuiDataGrid-row.Mui-selected, & .MuiDataGrid-row[data-rowindex][data-id].Mui-selected': { bgcolor: '#f3e8ff !important' },
-            '& .MuiDataGrid-row.editing-row': { bgcolor: '#f3e8ff !important' },
-            '& .MuiDataGrid-footerContainer': { bgcolor: '#ede9fe' },
-            '& .center-cell': { textAlign: 'center', justifyContent: 'center', display: 'flex', alignItems: 'center' },
-            width: '100%',
-          }}
-          getRowClassName={(params) => (inlineEditRowId === params.id ? 'editing-row' : '')}
-        />
       </div>
-    </div>
+    </>
   );
 } 

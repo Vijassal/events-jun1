@@ -14,6 +14,7 @@ import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { fetchConversionRate as fetchConversionRateUtil } from '../../src/lib/currencyUtils';
+import TopToolbar from '../../src/components/TopToolbar';
 
 function BudgetPageInner() {
   const [budgets, setBudgets] = useState<any[]>([]);
@@ -99,18 +100,20 @@ function BudgetPageInner() {
         inlineForm.currency &&
         settingsCurrency !== inlineForm.currency
       ) {
+        setInlineConversionLoading(true);
         const rate = await fetchConversionRateUtil(inlineForm.currency, settingsCurrency, supabase);
         setInlineForm(f => ({
           ...f,
           conversion_rate: rate,
           converted_amount: f.cost ? (parseFloat(f.cost) * rate).toFixed(2) : '',
         }));
+        setInlineConversionLoading(false);
       } else if (!inlineEditRowId && settingsCurrency === inlineForm.currency) {
         setInlineForm(f => ({ ...f, conversion_rate: 1 }));
       }
     };
     updateConversionRate();
-  }, [settingsCurrency, inlineForm.currency, inlineEditRowId]);
+  }, [settingsCurrency, inlineForm.currency, inlineForm.cost, inlineEditRowId]);
 
   // Remove fetchUserCurrency from profiles by email
   // Instead, get userCurrency from localStorage (set in settings)
@@ -581,423 +584,434 @@ function BudgetPageInner() {
     return <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress color="secondary" /></Box>;
   }
 
+  const navItems = [
+    { label: 'Budget', href: '/budget', active: true },
+  ];
+  const tempButtons = [
+    { label: 'Temp1' },
+    { label: 'Temp2' },
+    { label: 'Temp3' },
+  ];
+
   return (
-    <div style={{
-      width: '100%',
-      maxWidth: 'none',
-      margin: 0,
-      marginTop: 32,
-      marginBottom: 32,
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 32,
-      paddingLeft: 32,
-      paddingRight: 32,
-      boxSizing: 'border-box',
-    }}>
-      <h2 style={{ fontSize: 22, fontWeight: 700, color: '#7c3aed', marginBottom: 8, letterSpacing: 0.2 }}>Budget & Expenses</h2>
-      {accountInstances.length > 1 && (
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ fontWeight: 500, color: '#4b5563', marginRight: 8 }}>Account Instance:</label>
-          <select
-            value={accountInstanceId || ''}
-            onChange={e => setAccountInstanceId(e.target.value)}
-            style={{ height: 36, padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 14, outline: 'none', background: '#fff', color: '#222' }}
-          >
-            {accountInstances.map(inst => (
-              <option key={inst.id} value={inst.id}>{inst.name || inst.id}</option>
-            ))}
-          </select>
-        </div>
-      )}
-      {accountInstanceError && <Alert severity="error">{accountInstanceError}</Alert>}
-      {/* Inline Add Budget Form */}
-      <form
-        style={{
-          background: '#fff',
-          borderRadius: 12,
-          boxShadow: '0 2px 12px rgba(124, 58, 237, 0.06)',
-          padding: 24,
-          marginBottom: 0,
-          width: '100%',
-          maxWidth: 'none',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-        }}
-        onSubmit={handleInlineFormSubmit}
-        id="budget-inline-form"
-      >
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(11, 1fr)',
-          gap: 12,
-          alignItems: 'end',
-          width: '100%',
-        }}>
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-            <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Purchase *</label>
-            <input style={{ height: 38, padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', marginBottom: 4, background: '#fff', color: '#222' }} name="purchase" value={inlineForm.purchase} onChange={handleInlineFormChange} placeholder="Purchase" />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-            <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Vendor *</label>
+    <>
+      <TopToolbar
+        navItems={navItems}
+        tempButtons={tempButtons}
+        searchButton={{ onClick: () => alert('Search clicked!') }}
+      />
+      <div style={{
+        width: '100%',
+        maxWidth: 'none',
+        margin: 0,
+        marginTop: 32,
+        marginBottom: 32,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 32,
+        paddingLeft: 32,
+        paddingRight: 32,
+        boxSizing: 'border-box',
+      }}>
+        {accountInstances.length > 1 && (
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontWeight: 500, color: '#4b5563', marginRight: 8 }}>Account Instance:</label>
             <select
-              name="vendor_id"
-              value={inlineForm.vendor_id}
-              onChange={e => setInlineForm({ ...inlineForm, vendor_id: e.target.value })}
-              style={{ height: 38, padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', marginBottom: 4, background: '#fff', color: '#222' }}
-              required
+              value={accountInstanceId || ''}
+              onChange={e => setAccountInstanceId(e.target.value)}
+              style={{ height: 36, padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 14, outline: 'none', background: '#fff', color: '#222' }}
             >
-              <option value="">Select Vendor</option>
-              {vendors.map(vendor => (
-                <option key={vendor.id} value={vendor.id}>{vendor.name}</option>
+              {accountInstances.map(inst => (
+                <option key={inst.id} value={inst.id}>{inst.name || inst.id}</option>
               ))}
             </select>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-            <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Date *</label>
-            <input style={{ height: 38, padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', marginBottom: 4, background: '#fff', color: '#222' }} name="date" type="date" value={inlineForm.date} onChange={handleInlineFormChange} />
+        )}
+        {accountInstanceError && <Alert severity="error">{accountInstanceError}</Alert>}
+        {/* Inline Add Budget Form */}
+        <form
+          style={{
+            background: '#fff',
+            borderRadius: 12,
+            boxShadow: '0 2px 12px rgba(124, 58, 237, 0.06)',
+            padding: 24,
+            marginBottom: 0,
+            width: '100%',
+            maxWidth: 'none',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+          }}
+          onSubmit={handleInlineFormSubmit}
+          id="budget-inline-form"
+        >
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(11, 1fr)',
+            gap: 12,
+            alignItems: 'end',
+            width: '100%',
+          }}>
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+              <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Purchase *</label>
+              <input style={{ height: 38, padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', marginBottom: 4, background: '#fff', color: '#222' }} name="purchase" value={inlineForm.purchase} onChange={handleInlineFormChange} placeholder="Purchase" />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+              <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Vendor *</label>
+              <select
+                name="vendor_id"
+                value={inlineForm.vendor_id}
+                onChange={e => setInlineForm({ ...inlineForm, vendor_id: e.target.value })}
+                style={{ height: 38, padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', marginBottom: 4, background: '#fff', color: '#222' }}
+                required
+              >
+                <option value="">Select Vendor</option>
+                {vendors.map(vendor => (
+                  <option key={vendor.id} value={vendor.id}>{vendor.name}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+              <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Date *</label>
+              <input style={{ height: 38, padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', marginBottom: 4, background: '#fff', color: '#222' }} name="date" type="date" value={inlineForm.date} onChange={handleInlineFormChange} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+              <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Event *</label>
+              <select
+                name="event_id"
+                value={inlineForm.event_id}
+                onChange={e => setInlineForm({ ...inlineForm, event_id: e.target.value, sub_event_id: '' })}
+                style={{ height: 38, padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', marginBottom: 4, background: '#fff', color: '#222' }}
+                required
+              >
+                <option value="">Select Event</option>
+                {events.map(event => (
+                  <option key={event.id} value={event.id}>{event.name}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+              <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Sub-Event</label>
+              <select
+                name="sub_event_id"
+                value={inlineForm.sub_event_id || ''}
+                onChange={e => setInlineForm({ ...inlineForm, sub_event_id: e.target.value })}
+                style={{ height: 38, padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', marginBottom: 4, background: '#fff', color: '#222' }}
+              >
+                <option value="">Select Sub-Event</option>
+                {subEvents.filter(se => se.parentEventId === inlineForm.event_id).map(se => (
+                  <option key={se.id} value={se.id}>{se.name}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+              <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Category *</label>
+              <input style={{ height: 38, padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', marginBottom: 4, background: '#fff', color: '#222' }} name="category" value={inlineForm.category} onChange={handleInlineFormChange} placeholder="Category" />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+              <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Cost *</label>
+              <input style={{ height: 38, padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', marginBottom: 4, background: '#fff', color: '#222' }} name="cost" value={inlineForm.cost} onChange={handleInlineFormChange} placeholder="Cost" type="number" min={0} step="0.01" />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+              <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Currency *</label>
+              <select
+                name="currency"
+                value={inlineForm.currency}
+                onChange={e => setInlineForm({ ...inlineForm, currency: e.target.value })}
+                style={{ height: 38, lineHeight: '38px', padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', marginBottom: 0, background: '#fff', color: '#222', verticalAlign: 'middle' }}
+                required
+              >
+                {topCurrencies.map(cur => (
+                  <option key={cur} value={cur}>{cur}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+              <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Conversion Rate ({inlineForm.currency} → {userCurrency})</label>
+              <input
+                name="conversion_rate"
+                type="number"
+                step="0.0001"
+                value={inlineForm.conversion_rate}
+                readOnly
+                style={{ height: 38, lineHeight: '38px', padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', background: '#f3f4f6', color: '#222', width: 120, marginRight: 6, fontWeight: 600, marginBottom: 0 }}
+                disabled={inlineConversionLoading}
+              />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+              <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Converted Amount ({userCurrency})</label>
+              <input
+                name="converted_amount"
+                type="number"
+                value={inlineForm.converted_amount}
+                onChange={e => setInlineForm({ ...inlineForm, converted_amount: e.target.value })}
+                style={{ height: 38, lineHeight: '38px', padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', background: '#fff', color: '#222', marginBottom: 0 }}
+              />
+            </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-            <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Event *</label>
-            <select
-              name="event_id"
-              value={inlineForm.event_id}
-              onChange={e => setInlineForm({ ...inlineForm, event_id: e.target.value, sub_event_id: '' })}
-              style={{ height: 38, padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', marginBottom: 4, background: '#fff', color: '#222' }}
-              required
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 6 }}>
+            <button
+              style={{ background: 'linear-gradient(90deg, #a78bfa, #7c3aed)', color: 'white', fontWeight: 600, border: 'none', borderRadius: 7, padding: '8px 18px', fontSize: 14, boxShadow: '0 2px 8px rgba(124, 58, 237, 0.10)', cursor: 'pointer', marginTop: 6, alignSelf: 'flex-end' }}
+              type="submit"
+              disabled={inlineFormLoading}
             >
-              <option value="">Select Event</option>
-              {events.map(event => (
-                <option key={event.id} value={event.id}>{event.name}</option>
-              ))}
-            </select>
+              Add Budget
+            </button>
+            {inlineFormError && <span style={{ color: '#ef4444', fontWeight: 500, fontSize: 13 }}>{inlineFormError}</span>}
+            {inlineFormSuccess && <span style={{ color: '#22c55e', fontWeight: 500, fontSize: 13 }}>{inlineFormSuccess}</span>}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-            <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Sub-Event</label>
-            <select
-              name="sub_event_id"
-              value={inlineForm.sub_event_id || ''}
-              onChange={e => setInlineForm({ ...inlineForm, sub_event_id: e.target.value })}
-              style={{ height: 38, padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', marginBottom: 4, background: '#fff', color: '#222' }}
-            >
-              <option value="">Select Sub-Event</option>
-              {subEvents.filter(se => se.parentEventId === inlineForm.event_id).map(se => (
-                <option key={se.id} value={se.id}>{se.name}</option>
-              ))}
-            </select>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-            <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Category *</label>
-            <input style={{ height: 38, padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', marginBottom: 4, background: '#fff', color: '#222' }} name="category" value={inlineForm.category} onChange={handleInlineFormChange} placeholder="Category" />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-            <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Cost *</label>
-            <input style={{ height: 38, padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', marginBottom: 4, background: '#fff', color: '#222' }} name="cost" value={inlineForm.cost} onChange={handleInlineFormChange} placeholder="Cost" type="number" min={0} step="0.01" />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-            <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Currency *</label>
-            <select
-              name="currency"
-              value={inlineForm.currency}
-              onChange={e => setInlineForm({ ...inlineForm, currency: e.target.value })}
-              style={{ height: 38, lineHeight: '38px', padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', marginBottom: 0, background: '#fff', color: '#222', verticalAlign: 'middle' }}
-              required
-            >
-              {topCurrencies.map(cur => (
-                <option key={cur} value={cur}>{cur}</option>
-              ))}
-            </select>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-            <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Conversion Rate ({inlineForm.currency} → {userCurrency})</label>
-            <input
-              name="conversion_rate"
-              type="number"
-              step="0.0001"
-              value={inlineForm.conversion_rate}
-              onChange={e => setInlineForm({
-                ...inlineForm,
-                conversion_rate: parseFloat(e.target.value) || 1,
-                converted_amount: inlineForm.cost ? (parseFloat(inlineForm.cost) * (parseFloat(e.target.value) || 1)).toFixed(2) : ''
-              })}
-              style={{ height: 38, lineHeight: '38px', padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', background: '#f3f4f6', color: '#222', width: 120, marginRight: 6, fontWeight: 600, marginBottom: 0 }}
-              disabled={inlineConversionLoading}
-            />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-            <label style={{ fontWeight: 500, color: '#4b5563', marginBottom: 2, fontSize: 13 }}>Converted Amount ({userCurrency})</label>
-            <input
-              name="converted_amount"
-              type="number"
-              value={inlineForm.converted_amount}
-              onChange={e => setInlineForm({ ...inlineForm, converted_amount: e.target.value })}
-              style={{ height: 38, lineHeight: '38px', padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', background: '#fff', color: '#222', marginBottom: 0 }}
-            />
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 6 }}>
-          <button
-            style={{ background: 'linear-gradient(90deg, #a78bfa, #7c3aed)', color: 'white', fontWeight: 600, border: 'none', borderRadius: 7, padding: '8px 18px', fontSize: 14, boxShadow: '0 2px 8px rgba(124, 58, 237, 0.10)', cursor: 'pointer', marginTop: 6, alignSelf: 'flex-end' }}
-            type="submit"
-            disabled={inlineFormLoading}
-          >
-            Add Budget
-          </button>
-          {inlineFormError && <span style={{ color: '#ef4444', fontWeight: 500, fontSize: 13 }}>{inlineFormError}</span>}
-          {inlineFormSuccess && <span style={{ color: '#22c55e', fontWeight: 500, fontSize: 13 }}>{inlineFormSuccess}</span>}
-        </div>
-      </form>
-      {/* Modal BudgetForm for editing only */}
-      <BudgetForm open={formOpen} onClose={() => setFormOpen(false)} onSuccess={handleFormSuccess} initialData={editData} vendors={vendors} />
-      <div style={{ width: '100%', overflowX: 'auto', marginTop: 32 }}>
-        <Paper elevation={1} sx={{ p: 3, borderRadius: 3, bgcolor: '#fff', width: '100%' }}>
-          {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-              <CircularProgress color="secondary" />
-            </Box>
-          ) : error ? (
-            <Alert severity="error">{error}</Alert>
-          ) : (
-            <DataGrid
-              rows={budgets}
-              columns={columnsWithHandler}
-              getRowId={(row) => row.id}
-              initialState={columnState ? { ...columnState, pagination: { paginationModel: { pageSize: 5, page: 0 } } } : { pagination: { paginationModel: { pageSize: 5, page: 0 } } }}
-              pageSizeOptions={[5, 10, 25, 50, 100]}
-              disableRowSelectionOnClick
-              onColumnOrderChange={handleColumnOrderChange}
-              onColumnVisibilityModelChange={handleColumnVisibilityModelChange}
-              onColumnWidthChange={handleColumnWidthChange}
-              isCellEditable={isCellEditable}
-              processRowUpdate={handleInlineEditChange}
-              sx={{
-                border: 'none',
-                fontSize: 16,
-                '& .MuiDataGrid-columnHeaders': { bgcolor: '#ede9fe', color: '#7c3aed', fontWeight: 700 },
-                '& .MuiDataGrid-row': { bgcolor: '#fff' },
-                '& .MuiDataGrid-row.Mui-selected, & .MuiDataGrid-row[data-rowindex][data-id].Mui-selected': { bgcolor: '#f3e8ff !important' },
-                '& .MuiDataGrid-row.editing-row': { bgcolor: '#f3e8ff !important' },
-                '& .MuiDataGrid-footerContainer': { bgcolor: '#ede9fe' },
-                '& .center-cell': { textAlign: 'center', justifyContent: 'center', display: 'flex', alignItems: 'center' },
-                width: '100%',
-              }}
-              getRowClassName={(params) => (inlineEditRowId === params.id ? 'editing-row' : '')}
-            />
-          )}
-        </Paper>
-      </div>
-      {/* Modal for Budget Details (payments/items) remains unchanged */}
-      <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="xl" fullWidth>
-        <DialogTitle>
-          {selectedBudget ? <span style={{ color: '#7c3aed' }}>{`${selectedBudget.purchase} - Details`}</span> : <span style={{ color: '#7c3aed' }}>Budget Details</span>}
-        </DialogTitle>
-        <DialogContent>
-          {/* --- Summary Indicators --- */}
-          {selectedBudget && (
-            <Box sx={{
-              display: 'flex',
-              flexDirection: { xs: 'column', sm: 'row' },
-              alignItems: { xs: 'flex-start', sm: 'center' },
-              gap: 3,
-              mb: 3,
-              p: 2,
-              bgcolor: '#f3e8ff',
-              borderRadius: 2,
-              boxShadow: '0 2px 8px rgba(124, 58, 237, 0.06)',
-            }}>
-              <Box>
-                <Typography variant="subtitle2" sx={{ color: '#7c3aed', fontWeight: 700, fontSize: 15 }}>Total Budgeted</Typography>
-                <Typography variant="h6" sx={{ fontWeight: 700, color: '#4b5563', fontSize: 18 }}>
-                  {formatCurrency(selectedBudget.converted_amount || selectedBudget.cost)}
-                </Typography>
+        </form>
+        {/* Modal BudgetForm for editing only */}
+        <BudgetForm open={formOpen} onClose={() => setFormOpen(false)} onSuccess={handleFormSuccess} initialData={editData} vendors={vendors} />
+        <div style={{ width: '100%', overflowX: 'auto', marginTop: 32 }}>
+          <Paper elevation={1} sx={{ p: 3, borderRadius: 3, bgcolor: '#fff', width: '100%' }}>
+            {loading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+                <CircularProgress color="secondary" />
               </Box>
-              <Box>
-                <Typography variant="subtitle2" sx={{ color: '#7c3aed', fontWeight: 700, fontSize: 15 }}>Total Paid</Typography>
-                <Typography variant="h6" sx={{ fontWeight: 700, color: '#22c55e', fontSize: 18 }}>
-                  {formatCurrency(paymentLogs.reduce((sum, p) => sum + (Number(p.payment_amount) || 0), 0))}
-                </Typography>
-              </Box>
-              <Box>
-                <Typography variant="subtitle2" sx={{ color: '#7c3aed', fontWeight: 700, fontSize: 15 }}>Remaining</Typography>
-                <Typography variant="h6" sx={{ fontWeight: 700, color: '#ef4444', fontSize: 18 }}>
-                  {formatCurrency((Number(selectedBudget.converted_amount || selectedBudget.cost) || 0) - paymentLogs.reduce((sum, p) => sum + (Number(p.payment_amount) || 0), 0))}
-                </Typography>
-              </Box>
-              <Box sx={{ flex: 1, minWidth: 180 }}>
-                <Typography variant="subtitle2" sx={{ color: '#7c3aed', fontWeight: 700, fontSize: 15, mb: 0.5 }}>Progress</Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box sx={{ flex: 1 }}>
-                    <LinearProgress
-                      variant="determinate"
-                      value={
-                        ((paymentLogs.reduce((sum, p) => sum + (Number(p.payment_amount) || 0), 0)) /
-                          (Number(selectedBudget.converted_amount || selectedBudget.cost) || 1)) * 100
-                      }
-                      sx={{ height: 10, borderRadius: 5, bgcolor: '#ede9fe', '& .MuiLinearProgress-bar': { bgcolor: '#7c3aed' } }}
-                    />
-                  </Box>
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#7c3aed', minWidth: 40 }}>
-                    {Math.round(
-                      ((paymentLogs.reduce((sum, p) => sum + (Number(p.payment_amount) || 0), 0)) /
-                        (Number(selectedBudget.converted_amount || selectedBudget.cost) || 1)) * 100
-                    )}%
+            ) : error ? (
+              <Alert severity="error">{error}</Alert>
+            ) : (
+              <DataGrid
+                rows={budgets}
+                columns={columnsWithHandler}
+                getRowId={(row) => row.id}
+                initialState={columnState ? { ...columnState, pagination: { paginationModel: { pageSize: 5, page: 0 } } } : { pagination: { paginationModel: { pageSize: 5, page: 0 } } }}
+                pageSizeOptions={[5, 10, 25, 50, 100]}
+                disableRowSelectionOnClick
+                onColumnOrderChange={handleColumnOrderChange}
+                onColumnVisibilityModelChange={handleColumnVisibilityModelChange}
+                onColumnWidthChange={handleColumnWidthChange}
+                isCellEditable={isCellEditable}
+                processRowUpdate={handleInlineEditChange}
+                sx={{
+                  border: 'none',
+                  fontSize: 16,
+                  '& .MuiDataGrid-columnHeaders': { bgcolor: '#ede9fe', color: '#7c3aed', fontWeight: 700 },
+                  '& .MuiDataGrid-row': { bgcolor: '#fff' },
+                  '& .MuiDataGrid-row.Mui-selected, & .MuiDataGrid-row[data-rowindex][data-id].Mui-selected': { bgcolor: '#f3e8ff !important' },
+                  '& .MuiDataGrid-row.editing-row': { bgcolor: '#f3e8ff !important' },
+                  '& .MuiDataGrid-footerContainer': { bgcolor: '#ede9fe' },
+                  '& .center-cell': { textAlign: 'center', justifyContent: 'center', display: 'flex', alignItems: 'center' },
+                  width: '100%',
+                }}
+                getRowClassName={(params) => (inlineEditRowId === params.id ? 'editing-row' : '')}
+              />
+            )}
+          </Paper>
+        </div>
+        {/* Modal for Budget Details (payments/items) remains unchanged */}
+        <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="xl" fullWidth>
+          <DialogTitle>
+            {selectedBudget ? <span style={{ color: '#7c3aed' }}>{`${selectedBudget.purchase} - Details`}</span> : <span style={{ color: '#7c3aed' }}>Budget Details</span>}
+          </DialogTitle>
+          <DialogContent>
+            {/* --- Summary Indicators --- */}
+            {selectedBudget && (
+              <Box sx={{
+                display: 'flex',
+                flexDirection: { xs: 'column', sm: 'row' },
+                alignItems: { xs: 'flex-start', sm: 'center' },
+                gap: 3,
+                mb: 3,
+                p: 2,
+                bgcolor: '#f3e8ff',
+                borderRadius: 2,
+                boxShadow: '0 2px 8px rgba(124, 58, 237, 0.06)',
+              }}>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ color: '#7c3aed', fontWeight: 700, fontSize: 15 }}>Total Budgeted</Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: '#4b5563', fontSize: 18 }}>
+                    {formatCurrency(selectedBudget.converted_amount || selectedBudget.cost)}
                   </Typography>
                 </Box>
-              </Box>
-            </Box>
-          )}
-          {/* --- End Summary Indicators --- */}
-          <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
-            <Tab label={<span style={{ color: '#7c3aed' }}>Payments</span>} />
-            <Tab label={<span style={{ color: '#7c3aed' }}>Item Costs</span>} />
-          </Tabs>
-          {modalLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-              <CircularProgress color="secondary" />
-            </Box>
-          ) : modalError ? (
-            <Alert severity="error">{modalError}</Alert>
-          ) : (
-            <>
-              {/* Payments Tab */}
-              {tab === 0 && selectedBudget && (
-                <>
-                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
-                    <Button
-                      variant="contained"
-                      sx={{ background: 'linear-gradient(90deg, #a78bfa, #7c3aed)', color: 'white', fontWeight: 600, border: 'none', borderRadius: 7, padding: '8px 18px', fontSize: 14, boxShadow: '0 2px 8px rgba(124, 58, 237, 0.10)', cursor: 'pointer', marginTop: 6, alignSelf: 'flex-end' }}
-                      onClick={handleAddPayment}
-                    >
-                      Add Payment
-                    </Button>
-                  </Box>
-                  <TableContainer component={Paper} variant="outlined" sx={{ mb: 2, width: '100%' }}>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell className="center-header">Payment Amount</TableCell>
-                          <TableCell className="center-header">Payment By</TableCell>
-                          <TableCell className="center-header">Payment For</TableCell>
-                          <TableCell className="center-header">Payment Date</TableCell>
-                          <TableCell className="center-header">Item</TableCell>
-                          <TableCell className="center-header">Actions</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {paymentLogs.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={6} align="center" sx={{ color: 'text.disabled' }}>
-                              No payment logs found.
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          paymentLogs.map((log: any) => (
-                            <TableRow key={log.id}>
-                              <TableCell>{formatCurrency(log.payment_amount)}</TableCell>
-                              <TableCell>{log.payment_by}</TableCell>
-                              <TableCell>{log.payment_for}</TableCell>
-                              <TableCell>{log.payment_date}</TableCell>
-                              <TableCell>{log.item}</TableCell>
-                              <TableCell>
-                                <Button
-                                  variant="outlined"
-                                  size="small"
-                                  sx={{ color: '#7c3aed', borderColor: '#a78bfa', fontWeight: 600, textTransform: 'none' }}
-                                  onClick={() => handleEditPayment(log)}
-                                >
-                                  Edit
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                  <PaymentForm
-                    open={paymentFormOpen}
-                    onClose={() => setPaymentFormOpen(false)}
-                    onSuccess={handlePaymentFormSuccess}
-                    initialData={editPaymentData}
-                    budgetId={selectedBudget.id}
-                  />
-                </>
-              )}
-              {/* Item Costs Tab */}
-              {tab === 1 && selectedBudget && (
-                <>
-                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
-                    <Button
-                      variant="contained"
-                      sx={{ background: 'linear-gradient(90deg, #a78bfa, #7c3aed)', color: 'white', fontWeight: 600, border: 'none', borderRadius: 7, padding: '8px 18px', fontSize: 14, boxShadow: '0 2px 8px rgba(124, 58, 237, 0.10)', cursor: 'pointer', marginTop: 6, alignSelf: 'flex-end' }}
-                      onClick={() => {
-                        if (paymentLogs.length > 0) {
-                          handleAddItemCost(paymentLogs[0].id);
+                <Box>
+                  <Typography variant="subtitle2" sx={{ color: '#7c3aed', fontWeight: 700, fontSize: 15 }}>Total Paid</Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: '#22c55e', fontSize: 18 }}>
+                    {formatCurrency(paymentLogs.reduce((sum, p) => sum + (Number(p.payment_amount) || 0), 0))}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ color: '#7c3aed', fontWeight: 700, fontSize: 15 }}>Remaining</Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: '#ef4444', fontSize: 18 }}>
+                    {formatCurrency((Number(selectedBudget.converted_amount || selectedBudget.cost) || 0) - paymentLogs.reduce((sum, p) => sum + (Number(p.payment_amount) || 0), 0))}
+                  </Typography>
+                </Box>
+                <Box sx={{ flex: 1, minWidth: 180 }}>
+                  <Typography variant="subtitle2" sx={{ color: '#7c3aed', fontWeight: 700, fontSize: 15, mb: 0.5 }}>Progress</Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ flex: 1 }}>
+                      <LinearProgress
+                        variant="determinate"
+                        value={
+                          ((paymentLogs.reduce((sum, p) => sum + (Number(p.payment_amount) || 0), 0)) /
+                            (Number(selectedBudget.converted_amount || selectedBudget.cost) || 1)) * 100
                         }
-                      }}
-                      disabled={paymentLogs.length === 0}
-                    >
-                      Add Item Cost
-                    </Button>
+                        sx={{ height: 10, borderRadius: 5, bgcolor: '#ede9fe', '& .MuiLinearProgress-bar': { bgcolor: '#7c3aed' } }}
+                      />
+                    </Box>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#7c3aed', minWidth: 40 }}>
+                      {Math.round(
+                        ((paymentLogs.reduce((sum, p) => sum + (Number(p.payment_amount) || 0), 0)) /
+                          (Number(selectedBudget.converted_amount || selectedBudget.cost) || 1)) * 100
+                      )}%
+                    </Typography>
                   </Box>
-                  <TableContainer component={Paper} variant="outlined" sx={{ width: '100%' }}>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell className="center-header">Item</TableCell>
-                          <TableCell className="center-header">Per Cost</TableCell>
-                          <TableCell className="center-header">Subtotal</TableCell>
-                          <TableCell className="center-header">Total</TableCell>
-                          <TableCell className="center-header">Payment</TableCell>
-                          <TableCell className="center-header">Actions</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {itemCosts.length === 0 ? (
+                </Box>
+              </Box>
+            )}
+            {/* --- End Summary Indicators --- */}
+            <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
+              <Tab label={<span style={{ color: '#7c3aed' }}>Payments</span>} />
+              <Tab label={<span style={{ color: '#7c3aed' }}>Item Costs</span>} />
+            </Tabs>
+            {modalLoading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                <CircularProgress color="secondary" />
+              </Box>
+            ) : modalError ? (
+              <Alert severity="error">{modalError}</Alert>
+            ) : (
+              <>
+                {/* Payments Tab */}
+                {tab === 0 && selectedBudget && (
+                  <>
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+                      <Button
+                        variant="contained"
+                        sx={{ background: 'linear-gradient(90deg, #a78bfa, #7c3aed)', color: 'white', fontWeight: 600, border: 'none', borderRadius: 7, padding: '8px 18px', fontSize: 14, boxShadow: '0 2px 8px rgba(124, 58, 237, 0.10)', cursor: 'pointer', marginTop: 6, alignSelf: 'flex-end' }}
+                        onClick={handleAddPayment}
+                      >
+                        Add Payment
+                      </Button>
+                    </Box>
+                    <TableContainer component={Paper} variant="outlined" sx={{ mb: 2, width: '100%' }}>
+                      <Table size="small">
+                        <TableHead>
                           <TableRow>
-                            <TableCell colSpan={6} align="center" sx={{ color: 'text.disabled' }}>
-                              No item costs found.
-                            </TableCell>
+                            <TableCell className="center-header">Payment Amount</TableCell>
+                            <TableCell className="center-header">Payment By</TableCell>
+                            <TableCell className="center-header">Payment For</TableCell>
+                            <TableCell className="center-header">Payment Date</TableCell>
+                            <TableCell className="center-header">Item</TableCell>
+                            <TableCell className="center-header">Actions</TableCell>
                           </TableRow>
-                        ) : (
-                          itemCosts.map((cost: any) => (
-                            <TableRow key={cost.id}>
-                              <TableCell>{cost.item}</TableCell>
-                              <TableCell>{formatCurrency(cost.per_cost)}</TableCell>
-                              <TableCell>{formatCurrency(cost.subtotal)}</TableCell>
-                              <TableCell>{formatCurrency(cost.total)}</TableCell>
-                              <TableCell>{cost.logged_payment_id}</TableCell>
-                              <TableCell>
-                                <Button
-                                  variant="outlined"
-                                  size="small"
-                                  sx={{ color: '#7c3aed', borderColor: '#a78bfa', fontWeight: 600, textTransform: 'none' }}
-                                  onClick={() => handleEditItemCost(cost)}
-                                >
-                                  Edit
-                                </Button>
+                        </TableHead>
+                        <TableBody>
+                          {paymentLogs.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={6} align="center" sx={{ color: 'text.disabled' }}>
+                                No payment logs found.
                               </TableCell>
                             </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                  <ItemCostForm
-                    open={itemCostFormOpen}
-                    onClose={() => setItemCostFormOpen(false)}
-                    onSuccess={handleItemCostFormSuccess}
-                    initialData={editItemCostData}
-                    paymentId={selectedPaymentId || ''}
-                  />
-                </>
-              )}
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-    </div>
+                          ) : (
+                            paymentLogs.map((log: any) => (
+                              <TableRow key={log.id}>
+                                <TableCell>{formatCurrency(log.payment_amount)}</TableCell>
+                                <TableCell>{log.payment_by}</TableCell>
+                                <TableCell>{log.payment_for}</TableCell>
+                                <TableCell>{log.payment_date}</TableCell>
+                                <TableCell>{log.item}</TableCell>
+                                <TableCell>
+                                  <Button
+                                    variant="outlined"
+                                    size="small"
+                                    sx={{ color: '#7c3aed', borderColor: '#a78bfa', fontWeight: 600, textTransform: 'none' }}
+                                    onClick={() => handleEditPayment(log)}
+                                  >
+                                    Edit
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                    <PaymentForm
+                      open={paymentFormOpen}
+                      onClose={() => setPaymentFormOpen(false)}
+                      onSuccess={handlePaymentFormSuccess}
+                      initialData={editPaymentData}
+                      budgetId={selectedBudget.id}
+                    />
+                  </>
+                )}
+                {/* Item Costs Tab */}
+                {tab === 1 && selectedBudget && (
+                  <>
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+                      <Button
+                        variant="contained"
+                        sx={{ background: 'linear-gradient(90deg, #a78bfa, #7c3aed)', color: 'white', fontWeight: 600, border: 'none', borderRadius: 7, padding: '8px 18px', fontSize: 14, boxShadow: '0 2px 8px rgba(124, 58, 237, 0.10)', cursor: 'pointer', marginTop: 6, alignSelf: 'flex-end' }}
+                        onClick={() => {
+                          if (paymentLogs.length > 0) {
+                            handleAddItemCost(paymentLogs[0].id);
+                          }
+                        }}
+                        disabled={paymentLogs.length === 0}
+                      >
+                        Add Item Cost
+                      </Button>
+                    </Box>
+                    <TableContainer component={Paper} variant="outlined" sx={{ width: '100%' }}>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell className="center-header">Item</TableCell>
+                            <TableCell className="center-header">Per Cost</TableCell>
+                            <TableCell className="center-header">Subtotal</TableCell>
+                            <TableCell className="center-header">Total</TableCell>
+                            <TableCell className="center-header">Payment</TableCell>
+                            <TableCell className="center-header">Actions</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {itemCosts.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={6} align="center" sx={{ color: 'text.disabled' }}>
+                                No item costs found.
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            itemCosts.map((cost: any) => (
+                              <TableRow key={cost.id}>
+                                <TableCell>{cost.item}</TableCell>
+                                <TableCell>{formatCurrency(cost.per_cost)}</TableCell>
+                                <TableCell>{formatCurrency(cost.subtotal)}</TableCell>
+                                <TableCell>{formatCurrency(cost.total)}</TableCell>
+                                <TableCell>{cost.logged_payment_id}</TableCell>
+                                <TableCell>
+                                  <Button
+                                    variant="outlined"
+                                    size="small"
+                                    sx={{ color: '#7c3aed', borderColor: '#a78bfa', fontWeight: 600, textTransform: 'none' }}
+                                    onClick={() => handleEditItemCost(cost)}
+                                  >
+                                    Edit
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                    <ItemCostForm
+                      open={itemCostFormOpen}
+                      onClose={() => setItemCostFormOpen(false)}
+                      onSuccess={handleItemCostFormSuccess}
+                      initialData={editItemCostData}
+                      paymentId={selectedPaymentId || ''}
+                    />
+                  </>
+                )}
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
+    </>
   );
 }
 

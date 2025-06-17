@@ -1,0 +1,20 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Ensure for every new working day, you make a fresh md file for storing notes. Append simple notes of simple changes made to the corresponding day's md file and ensure every new note that is appended has a date and time stamp (again, use terminal date to find the date and time for date and time stamping). 
+
+Append detailed notes of complex changes made to the corresponding day's md file and ensure every new note that is appended has a date and time stamp (again, use terminal date to find the date and time for date and time stamping). 
+
+Example for today's below.
+
+File Name: June_13_2025
+Content:
+June 13 2025 21:30 - Change to sidebar
+[details of changes here]]
+
+File Name: June_14_2025
+Content:
+June 14 2025 15:30 - Change to RSVP page
+[details of changes here]]

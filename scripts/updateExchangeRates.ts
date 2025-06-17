@@ -37,13 +37,14 @@ async function fetchRates(base: string): Promise<Record<string, number> | null> 
 }
 
 async function updateAllRates() {
-  // Delete all rates for today before upserting
-  const { error: delError } = await supabase.from('exchange_rates').delete().eq('date', today);
+  // Delete all rates from the table
+  const { error: delError } = await supabase.from('exchange_rates').delete().neq('from_currency', '');
   if (delError) {
-    console.error('Error deleting today\'s rates:', delError.message);
+    console.error('Error deleting all rates:', delError.message);
   } else {
-    console.log('Deleted all rates for today before upserting.');
+    console.log('Deleted all rates from the table.');
   }
+
   for (const base of topCurrencies) {
     console.log(`Fetching rates for base: ${base}`);
     const rates = await fetchRates(base);
@@ -57,11 +58,11 @@ async function updateAllRates() {
         date: today,
       }));
     if (upserts.length === 0) continue;
-    const { error } = await supabase.from('exchange_rates').upsert(upserts, { onConflict: 'from_currency,to_currency,date' });
+    const { error } = await supabase.from('exchange_rates').insert(upserts);
     if (error) {
-      console.error(`[${base}] Supabase upsert error:`, error.message);
+      console.error(`[${base}] Supabase insert error:`, error.message);
     } else {
-      console.log(`[${base}] Upserted ${upserts.length} rates.`);
+      console.log(`[${base}] Inserted ${upserts.length} rates.`);
     }
   }
   console.log('Exchange rates update complete.');

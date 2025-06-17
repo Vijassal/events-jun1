@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { MenuItem, Select, FormControl, InputLabel, Tabs, Tab, Box } from '@mui/material';
 import { supabase } from '../../src/lib/supabase';
+import TopToolbar from '../../src/components/TopToolbar';
 
 const Toggle = ({ checked, onChange, label }: { checked: boolean, onChange: (checked: boolean) => void, label: string }) => (
   <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
@@ -310,169 +311,176 @@ export default function SettingsPage() {
     );
   }
 
+  const navItems = [
+    { label: 'Settings', href: '/settings', active: true },
+  ];
+  const tempButtons = [
+    { label: 'Temp1' },
+    { label: 'Temp2' },
+    { label: 'Temp3' },
+  ];
+
   if (loading) return <div style={{ maxWidth: 600, margin: '0 auto', padding: 32 }}>Loading settings...</div>;
 
   return (
-    <div style={{ maxWidth: 600, margin: "0 auto", padding: 32 }}>
-      <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 24 }}>Settings</h1>
-      <div style={{ marginBottom: 24 }}>
-        <label style={{ fontWeight: 600, marginRight: 8 }}>Current Account Instance:</label>
-        <select value={selectedInstance || ''} onChange={handleInstanceSwitch} style={{ padding: 6, borderRadius: 4, border: '1px solid #ccc' }}>
-          {instances.map(inst => (
-            <option key={inst.id} value={inst.id}>{inst.name}</option>
-          ))}
-        </select>
-      </div>
-      <Tabs value={tab} onChange={handleTabChange} aria-label="settings tabs" sx={{ mb: 2 }}>
-        <Tab label="Profile" id="settings-tab-0" aria-controls="settings-tabpanel-0" />
-        <Tab label="Team" id="settings-tab-1" aria-controls="settings-tabpanel-1" />
-        <Tab label="Configurations" id="settings-tab-2" aria-controls="settings-tabpanel-2" />
-      </Tabs>
-      <TabPanel value={tab} index={0}>
-        {/* Profile Tab Content */}
-        <section style={{ marginBottom: 32 }}>
-          <h2 style={{ fontSize: 20, fontWeight: 600 }}>Profile</h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
-            <label>
-              Name
-              <input type="text" placeholder="Your Name" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ccc" }} disabled />
-            </label>
-            <label>
-              Email
-              <input type="email" placeholder="you@example.com" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ccc" }} disabled />
-            </label>
-          </div>
-        </section>
-        <section style={{ marginBottom: 32 }}>
-          <h2 style={{ fontSize: 20, fontWeight: 600 }}>Account</h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
-            <label>
-              Password
-              <input type="password" placeholder="********" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ccc" }} disabled />
-            </label>
-          </div>
-        </section>
-        <section style={{ marginBottom: 32 }}>
-          <h2 style={{ fontSize: 20, fontWeight: 600 }}>Notifications</h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input type="checkbox" checked={emailNotifications} onChange={e => { setEmailNotifications(e.target.checked); updateSettings({ email_notifications_enabled: e.target.checked }); }} /> Email Notifications
-            </label>
-            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input type="checkbox" checked={smsNotifications} onChange={e => { setSmsNotifications(e.target.checked); updateSettings({ sms_notifications_enabled: e.target.checked }); }} /> SMS Notifications
-            </label>
-          </div>
-        </section>
-        <section style={{ marginBottom: 32 }}>
-          <h2 style={{ fontSize: 20, fontWeight: 600 }}>Privacy</h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input type="checkbox" checked={profilePrivate} onChange={e => { setProfilePrivate(e.target.checked); updateSettings({ profile_private: e.target.checked }); }} /> Make profile private
-            </label>
-          </div>
-        </section>
-        <section>
-          <h2 style={{ fontSize: 20, fontWeight: 600 }}>Theme</h2>
-          <div style={{ display: "flex", flexDirection: "row", gap: 16, marginTop: 12 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input type="radio" name="theme" checked={theme === 'light'} onChange={() => { setTheme('light'); updateSettings({ theme: 'light' }); }} /> Light
-            </label>
-            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input type="radio" name="theme" checked={theme === 'dark'} onChange={() => { setTheme('dark'); updateSettings({ theme: 'dark' }); }} /> Dark
-            </label>
-          </div>
-        </section>
-      </TabPanel>
-      <TabPanel value={tab} index={1}>
-        {/* Team Tab Content */}
-        <section style={{ marginBottom: 32 }}>
-          <h2 style={{ fontSize: 20, fontWeight: 600 }}>Invite Team Member</h2>
-          <form style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 400 }} onSubmit={handleInvite}>
-            <label>
-              Email
-              <input type="email" placeholder="team@example.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ccc" }} />
-            </label>
-            <button type="submit" style={{ padding: 10, borderRadius: 6, background: '#7c3aed', color: '#fff', border: 'none', fontWeight: 600, cursor: 'pointer' }}>
-              Send Invite
-            </button>
-            {inviteStatus && <div style={{ marginTop: 8, color: inviteStatus.includes('success') ? 'green' : 'red' }}>{inviteStatus}</div>}
-          </form>
-        </section>
-        <section style={{ marginTop: 32 }}>
-          <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>Team Members</h3>
-          {membersLoading ? (
-            <div>Loading members...</div>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Email</th>
-                  <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Role</th>
-                </tr>
-              </thead>
-              <tbody>
-                {members.map((member) => (
-                  <tr key={member.user_id}>
-                    <td style={{ padding: 8 }}>{member.email}</td>
-                    <td style={{ padding: 8 }}>
-                      <select
-                        value={member.role}
-                        onChange={e => handleRoleChange(member.user_id, e.target.value)}
-                        disabled={member.user_id === currentUserId && member.role === 'owner'}
-                        style={{ padding: 4, borderRadius: 4 }}
-                      >
-                        <option value="owner">Owner</option>
-                        <option value="admin">Admin</option>
-                        <option value="member">Member</option>
-                      </select>
-                    </td>
+    <>
+      <TopToolbar
+        navItems={navItems}
+        tempButtons={tempButtons}
+        searchButton={{ onClick: () => alert('Search clicked!') }}
+      />
+      <div style={{ maxWidth: 600, margin: "0 auto", padding: 32 }}>
+        <Tabs value={tab} onChange={handleTabChange} aria-label="settings tabs" sx={{ mb: 2 }}>
+          <Tab label="Profile" id="settings-tab-0" aria-controls="settings-tabpanel-0" />
+          <Tab label="Team" id="settings-tab-1" aria-controls="settings-tabpanel-1" />
+          <Tab label="Configurations" id="settings-tab-2" aria-controls="settings-tabpanel-2" />
+        </Tabs>
+        <TabPanel value={tab} index={0}>
+          {/* Profile Tab Content */}
+          <section style={{ marginBottom: 32 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 600 }}>Profile</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
+              <label>
+                Name
+                <input type="text" placeholder="Your Name" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ccc" }} disabled />
+              </label>
+              <label>
+                Email
+                <input type="email" placeholder="you@example.com" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ccc" }} disabled />
+              </label>
+            </div>
+          </section>
+          <section style={{ marginBottom: 32 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 600 }}>Account</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
+              <label>
+                Password
+                <input type="password" placeholder="********" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ccc" }} disabled />
+              </label>
+            </div>
+          </section>
+          <section style={{ marginBottom: 32 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 600 }}>Notifications</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input type="checkbox" checked={emailNotifications} onChange={e => { setEmailNotifications(e.target.checked); updateSettings({ email_notifications_enabled: e.target.checked }); }} /> Email Notifications
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input type="checkbox" checked={smsNotifications} onChange={e => { setSmsNotifications(e.target.checked); updateSettings({ sms_notifications_enabled: e.target.checked }); }} /> SMS Notifications
+              </label>
+            </div>
+          </section>
+          <section style={{ marginBottom: 32 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 600 }}>Privacy</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input type="checkbox" checked={profilePrivate} onChange={e => { setProfilePrivate(e.target.checked); updateSettings({ profile_private: e.target.checked }); }} /> Make profile private
+              </label>
+            </div>
+          </section>
+          <section>
+            <h2 style={{ fontSize: 20, fontWeight: 600 }}>Theme</h2>
+            <div style={{ display: "flex", flexDirection: "row", gap: 16, marginTop: 12 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input type="radio" name="theme" checked={theme === 'light'} onChange={() => { setTheme('light'); updateSettings({ theme: 'light' }); }} /> Light
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input type="radio" name="theme" checked={theme === 'dark'} onChange={() => { setTheme('dark'); updateSettings({ theme: 'dark' }); }} /> Dark
+              </label>
+            </div>
+          </section>
+        </TabPanel>
+        <TabPanel value={tab} index={1}>
+          {/* Team Tab Content */}
+          <section style={{ marginBottom: 32 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 600 }}>Invite Team Member</h2>
+            <form style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 400 }} onSubmit={handleInvite}>
+              <label>
+                Email
+                <input type="email" placeholder="team@example.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ccc" }} />
+              </label>
+              <button type="submit" style={{ padding: 10, borderRadius: 6, background: '#7c3aed', color: '#fff', border: 'none', fontWeight: 600, cursor: 'pointer' }}>
+                Send Invite
+              </button>
+              {inviteStatus && <div style={{ marginTop: 8, color: inviteStatus.includes('success') ? 'green' : 'red' }}>{inviteStatus}</div>}
+            </form>
+          </section>
+          <section style={{ marginTop: 32 }}>
+            <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>Team Members</h3>
+            {membersLoading ? (
+              <div>Loading members...</div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Email</th>
+                    <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Role</th>
                   </tr>
+                </thead>
+                <tbody>
+                  {members.map((member) => (
+                    <tr key={member.user_id}>
+                      <td style={{ padding: 8 }}>{member.email}</td>
+                      <td style={{ padding: 8 }}>
+                        <select
+                          value={member.role}
+                          onChange={e => handleRoleChange(member.user_id, e.target.value)}
+                          disabled={member.user_id === currentUserId && member.role === 'owner'}
+                          style={{ padding: 4, borderRadius: 4 }}
+                        >
+                          <option value="owner">Owner</option>
+                          <option value="admin">Admin</option>
+                          <option value="member">Member</option>
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {roleStatus && <div style={{ marginTop: 8, color: roleStatus.includes('success') ? 'green' : 'red' }}>{roleStatus}</div>}
+          </section>
+        </TabPanel>
+        <TabPanel value={tab} index={2}>
+          {/* Configurations Tab Content */}
+          <section style={{ marginBottom: 32 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 600 }}>Feature Toggles</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 12 }}>
+              <Toggle
+                checked={religionEnabled}
+                onChange={checked => { setReligionEnabled(checked); updateSettings({ religion_enabled: checked }); }}
+                label="Enable Religion Page"
+              />
+              <Toggle
+                checked={floorplanEnabled}
+                onChange={checked => { setFloorplanEnabled(checked); updateSettings({ floorplan_enabled: checked }); }}
+                label="Enable Floorplan Page"
+              />
+              {saving && <span style={{ color: '#7c3aed', fontSize: 14 }}>Saving...</span>}
+            </div>
+          </section>
+          <section style={{ marginBottom: 32 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 600 }}>Currency</h2>
+            <FormControl fullWidth sx={{ mt: 2 }}>
+              <InputLabel id="currency-label">Currency</InputLabel>
+              <Select
+                labelId="currency-label"
+                value={currency}
+                label="Currency"
+                onChange={e => { setCurrency(e.target.value); updateSettings({ currency: e.target.value }); localStorage.setItem('selectedCurrency', e.target.value); window.dispatchEvent(new Event('currencyChanged')); }}
+              >
+                {currencyList.map(c => (
+                  <MenuItem key={c.code} value={c.code}>{c.code} - {c.name}</MenuItem>
                 ))}
-              </tbody>
-            </table>
-          )}
-          {roleStatus && <div style={{ marginTop: 8, color: roleStatus.includes('success') ? 'green' : 'red' }}>{roleStatus}</div>}
-        </section>
-      </TabPanel>
-      <TabPanel value={tab} index={2}>
-        {/* Configurations Tab Content */}
-        <section style={{ marginBottom: 32 }}>
-          <h2 style={{ fontSize: 20, fontWeight: 600 }}>Feature Toggles</h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 12 }}>
-            <Toggle
-              checked={religionEnabled}
-              onChange={checked => { setReligionEnabled(checked); updateSettings({ religion_enabled: checked }); }}
-              label="Enable Religion Page"
-            />
-            <Toggle
-              checked={floorplanEnabled}
-              onChange={checked => { setFloorplanEnabled(checked); updateSettings({ floorplan_enabled: checked }); }}
-              label="Enable Floorplan Page"
-            />
-            {saving && <span style={{ color: '#7c3aed', fontSize: 14 }}>Saving...</span>}
-          </div>
-        </section>
-        <section style={{ marginBottom: 32 }}>
-          <h2 style={{ fontSize: 20, fontWeight: 600 }}>Currency</h2>
-          <FormControl fullWidth sx={{ mt: 2 }}>
-            <InputLabel id="currency-label">Currency</InputLabel>
-            <Select
-              labelId="currency-label"
-              value={currency}
-              label="Currency"
-              onChange={e => { setCurrency(e.target.value); updateSettings({ currency: e.target.value }); localStorage.setItem('selectedCurrency', e.target.value); window.dispatchEvent(new Event('currencyChanged')); }}
-            >
-              {currencyList.map(c => (
-                <MenuItem key={c.code} value={c.code}>{c.code} - {c.name}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <div style={{ marginTop: 8, color: '#6b7280', fontSize: 14 }}>
-            Selected currency: <b>{currency}</b>
-            {saving && <span style={{ color: '#7c3aed', fontSize: 14, marginLeft: 12 }}>Saving...</span>}
-          </div>
-        </section>
-      </TabPanel>
-    </div>
+              </Select>
+            </FormControl>
+            <div style={{ marginTop: 8, color: '#6b7280', fontSize: 14 }}>
+              Selected currency: <b>{currency}</b>
+              {saving && <span style={{ color: '#7c3aed', fontSize: 14, marginLeft: 12 }}>Saving...</span>}
+            </div>
+          </section>
+        </TabPanel>
+      </div>
+    </>
   );
 } 
