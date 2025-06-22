@@ -6,11 +6,12 @@ interface NavItem {
   label: string;
   href: string;
   active?: boolean;
+  onClick?: () => void;
 }
 
 interface TopToolbarProps {
   navItems: NavItem[];
-  tempButtons?: { label: string; onClick?: () => void }[];
+  tempButtons?: { label: string; onClick?: () => void; active?: boolean }[];
   searchButton?: { onClick?: () => void };
 }
 
@@ -21,13 +22,23 @@ const TopToolbar: React.FC<TopToolbarProps> = ({ navItems, tempButtons = [], sea
         {/* Navigation Items */}
         <div className="flex items-center justify-center gap-1 md:gap-2">
           {navItems.map((item, idx) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`px-4 py-2 rounded-full text-sm md:text-base font-medium transition-colors duration-150 ${item.active ? 'bg-lime-300 text-black shadow' : 'text-gray-700 hover:bg-gray-200'}`}
-            >
-              {item.label}
-            </Link>
+            item.onClick ? (
+              <button
+                key={item.href + idx}
+                onClick={item.onClick}
+                className={`px-4 py-2 rounded-full text-sm md:text-base font-medium transition-colors duration-150 ${item.active ? 'bg-lime-300 text-black shadow' : 'text-gray-700 hover:bg-gray-200'}`}
+              >
+                {item.label}
+              </button>
+            ) : (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`px-4 py-2 rounded-full text-sm md:text-base font-medium transition-colors duration-150 ${item.active ? 'bg-lime-300 text-black shadow' : 'text-gray-700 hover:bg-gray-200'}`}
+              >
+                {item.label}
+              </Link>
+            )
           ))}
         </div>
         {/* Temporary Buttons */}
@@ -35,7 +46,7 @@ const TopToolbar: React.FC<TopToolbarProps> = ({ navItems, tempButtons = [], sea
           <button
             key={btn.label + idx}
             onClick={btn.onClick}
-            className="px-3 py-2 rounded-full bg-blue-100 text-blue-700 text-xs md:text-sm font-medium hover:bg-blue-200 transition-colors"
+            className={`px-3 py-2 rounded-full text-xs md:text-sm font-medium transition-colors ${btn.active ? 'bg-lime-300 text-black shadow' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'}`}
           >
             {btn.label}
           </button>

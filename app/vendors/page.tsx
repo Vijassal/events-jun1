@@ -20,6 +20,9 @@ interface VendorData {
 }
 
 export default function VendorsPage() {
+  // Add state for active tab
+  const [activeTab, setActiveTab] = useState<'vendors' | 'spotlight' | 'hot'>('vendors');
+  
   const [vendors, setVendors] = useState<VendorData[]>([]);
   const [vendorForm, setVendorForm] = useState<Omit<VendorData, 'id' | 'account_instance_id'>>({
     name: '', date: '', start_time: '', end_time: '', location: '', type: '', category: ''
@@ -331,13 +334,461 @@ export default function VendorsPage() {
   };
 
   const navItems = [
-    { label: 'Vendors', href: '/vendors', active: true },
+    { 
+      label: 'Vendors', 
+      href: '/vendors', 
+      active: activeTab === 'vendors',
+      onClick: () => setActiveTab('vendors')
+    },
   ];
   const tempButtons = [
-    { label: 'Temp1' },
-    { label: 'Temp2' },
-    { label: 'Temp3' },
+    { 
+      label: 'Spotlight',
+      onClick: () => setActiveTab('spotlight'),
+      active: activeTab === 'spotlight'
+    },
+    { 
+      label: 'Hot!',
+      onClick: () => setActiveTab('hot'),
+      active: activeTab === 'hot'
+    },
   ];
+
+  // Render content based on active tab
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'vendors':
+        return (
+          <>
+            <form style={formStyle} onSubmit={handleVendorSubmit} id="vendor-form">
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+                gap: 18 
+              }}>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <label style={labelStyle}>Name *</label>
+                  <input style={inputStyle} name="name" value={vendorForm.name} onChange={handleChange} placeholder="Vendor Name" />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <label style={labelStyle}>Date *</label>
+                  <input style={inputStyle} name="date" type="date" value={vendorForm.date} onChange={handleChange} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <label style={labelStyle}>Start Time *</label>
+                  <input style={inputStyle} name="start_time" type="time" value={vendorForm.start_time} onChange={handleChange} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <label style={labelStyle}>End Time</label>
+                  <input style={inputStyle} name="end_time" type="time" value={vendorForm.end_time} onChange={handleChange} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <label style={labelStyle}>Location</label>
+                  <input style={inputStyle} name="location" value={vendorForm.location} onChange={handleChange} placeholder="Location" />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <label style={labelStyle}>Type</label>
+                  <input style={inputStyle} name="type" value={vendorForm.type} onChange={handleChange} placeholder="Type" />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <label style={labelStyle}>Category</label>
+                  <input style={inputStyle} name="category" value={vendorForm.category} onChange={handleChange} placeholder="Category" />
+                </div>
+              </div>
+              {error && <div style={errorStyle}>{error}</div>}
+              {success && <div style={successStyle}>{success}</div>}
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 6 }}>
+                <button style={buttonStyle} type="submit">{editingVendorId ? 'Update Vendor' : 'Add Vendor'}</button>
+                {editingVendorId && (
+                  <button
+                    type="button"
+                    style={{ ...buttonStyle, background: '#f3f4f6', color: '#7c3aed', boxShadow: 'none', border: '1px solid #a78bfa' }}
+                    onClick={() => {
+                      setEditingVendorId(null);
+                      setVendorForm({ name: '', date: '', start_time: '', end_time: '', location: '', type: '', category: '' });
+                      setError('');
+                      setSuccess('');
+                    }}
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </form>
+            <div style={{ width: '100%', overflowX: 'auto', marginTop: 32 }}>
+              <DataGrid
+                rows={vendors}
+                columns={columnsWithHandler}
+                getRowId={(row) => row.id}
+                initialState={columnState ? { ...columnState, pagination: { paginationModel: { pageSize: 5, page: 0 } } } : { pagination: { paginationModel: { pageSize: 5, page: 0 } } }}
+                pageSizeOptions={[5, 10, 25, 50, 100]}
+                disableRowSelectionOnClick
+                onColumnOrderChange={handleColumnOrderChange}
+                onColumnVisibilityModelChange={handleColumnVisibilityModelChange}
+                onColumnWidthChange={handleColumnWidthChange}
+                isCellEditable={isCellEditable}
+                processRowUpdate={handleInlineEditChange}
+                onProcessRowUpdateError={(error) => {
+                  setError('Failed to update vendor: ' + (error?.message || error));
+                }}
+                sx={{
+                  border: 'none',
+                  fontSize: 16,
+                  '& .MuiDataGrid-columnHeaders': { bgcolor: '#ede9fe', color: '#7c3aed', fontWeight: 700 },
+                  '& .MuiDataGrid-row': { bgcolor: '#fff' },
+                  '& .MuiDataGrid-row.Mui-selected, & .MuiDataGrid-row[data-rowindex][data-id].Mui-selected': { bgcolor: '#f3e8ff !important' },
+                  '& .MuiDataGrid-row.editing-row': { bgcolor: '#f3e8ff !important' },
+                  '& .MuiDataGrid-footerContainer': { bgcolor: '#ede9fe' },
+                  '& .center-cell': { textAlign: 'center', justifyContent: 'center', display: 'flex', alignItems: 'center' },
+                  width: '100%',
+                }}
+                getRowClassName={(params) => (inlineEditRowId === params.id ? 'editing-row' : '')}
+              />
+            </div>
+          </>
+        );
+
+      case 'spotlight':
+        return (
+          <>
+            <div style={{
+              background: '#fff',
+              borderRadius: 16,
+              padding: '24px 32px',
+              boxShadow: '0 4px 24px rgba(60, 120, 180, 0.08)',
+              border: '1.2px solid #e5e7eb',
+              marginBottom: 24,
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h1 style={{ fontSize: 28, fontWeight: 700, color: '#374151', marginBottom: 8 }}>Vendor Spotlight</h1>
+                  <p style={{ fontSize: 16, color: '#6b7280' }}>Featured vendors and special promotions</p>
+                </div>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <button style={{
+                    background: 'linear-gradient(90deg, #6366f1 0%, #db2777 100%)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 8,
+                    padding: '12px 24px',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(99,102,241,0.15)',
+                  }}>
+                    + Add to Spotlight
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div style={{
+              background: '#fff',
+              borderRadius: 16,
+              boxShadow: '0 4px 24px rgba(60, 120, 180, 0.08)',
+              border: '1.2px solid #e5e7eb',
+              overflow: 'hidden',
+            }}>
+              <div style={{ padding: '32px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                  <h2 style={{ fontSize: 20, fontWeight: 700, color: '#374151' }}>Featured Vendors</h2>
+                  <button style={{
+                    background: '#6366f1',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 6,
+                    padding: '8px 16px',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}>
+                    + Add Featured
+                  </button>
+                </div>
+                
+                {/* Featured Vendor Cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 20 }}>
+                  {/* Sample Featured Vendor Card */}
+                  <div style={{
+                    border: '1px solid #e5e7eb',
+                    borderRadius: 12,
+                    padding: 20,
+                    background: '#fff',
+                    transition: 'box-shadow 0.2s',
+                    cursor: 'pointer',
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                      <div>
+                        <h3 style={{ fontSize: 16, fontWeight: 600, color: '#374151', marginBottom: 4 }}>Elegant Catering Co.</h3>
+                        <p style={{ fontSize: 13, color: '#6b7280' }}>Featured since: June 15, 2025</p>
+                      </div>
+                      <span style={{
+                        background: '#dcfce7',
+                        color: '#166534',
+                        padding: '4px 8px',
+                        borderRadius: 12,
+                        fontSize: 11,
+                        fontWeight: 600,
+                      }}>
+                        Featured
+                      </span>
+                    </div>
+                    <div style={{ marginBottom: 16 }}>
+                      <p style={{ fontSize: 14, color: '#374151', marginBottom: 8 }}>
+                        <strong>Special Offer:</strong> 15% off for wedding receptions
+                      </p>
+                      <p style={{ fontSize: 14, color: '#374151', marginBottom: 8 }}>
+                        <strong>Rating:</strong> ⭐⭐⭐⭐⭐ (4.9/5)
+                      </p>
+                      <p style={{ fontSize: 14, color: '#374151' }}>
+                        <strong>Contact:</strong> info@elegantcatering.com
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button style={{
+                        background: '#6366f1',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: 6,
+                        padding: '8px 16px',
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}>
+                        View Details
+                      </button>
+                      <button style={{
+                        background: '#f4f6fb',
+                        color: '#374151',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: 6,
+                        padding: '8px 16px',
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}>
+                        Contact
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Empty State */}
+                  <div style={{
+                    border: '2px dashed #e5e7eb',
+                    borderRadius: 12,
+                    padding: 40,
+                    background: '#f9fafb',
+                    textAlign: 'center',
+                    color: '#6b7280',
+                  }}>
+                    <div style={{ fontSize: 48, marginBottom: 16 }}>⭐</div>
+                    <h3 style={{ fontSize: 18, fontWeight: 600, color: '#374151', marginBottom: 8 }}>
+                      No Featured Vendors Yet
+                    </h3>
+                    <p style={{ fontSize: 14, marginBottom: 16 }}>
+                      Add vendors to your spotlight to highlight special offers and promotions
+                    </p>
+                    <button style={{
+                      background: '#6366f1',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 6,
+                      padding: '8px 16px',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}>
+                      Add Featured Vendor
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        );
+
+      case 'hot':
+        return (
+          <>
+            <div style={{
+              background: '#fff',
+              borderRadius: 16,
+              padding: '24px 32px',
+              boxShadow: '0 4px 24px rgba(60, 120, 180, 0.08)',
+              border: '1.2px solid #e5e7eb',
+              marginBottom: 24,
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h1 style={{ fontSize: 28, fontWeight: 700, color: '#374151', marginBottom: 8 }}>Hot Vendors</h1>
+                  <p style={{ fontSize: 16, color: '#6b7280' }}>Trending and popular vendors in your area</p>
+                </div>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <button style={{
+                    background: 'linear-gradient(90deg, #f59e0b 0%, #ef4444 100%)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 8,
+                    padding: '12px 24px',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(245,158,11,0.15)',
+                  }}>
+                    🔥 Trending Now
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div style={{
+              background: '#fff',
+              borderRadius: 16,
+              boxShadow: '0 4px 24px rgba(60, 120, 180, 0.08)',
+              border: '1.2px solid #e5e7eb',
+              overflow: 'hidden',
+            }}>
+              <div style={{ padding: '32px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                  <h2 style={{ fontSize: 20, fontWeight: 700, color: '#374151' }}>Trending Vendors</h2>
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    <select style={{
+                      padding: '8px 12px',
+                      borderRadius: 6,
+                      border: '1px solid #e5e7eb',
+                      fontSize: 13,
+                      background: '#fff',
+                    }}>
+                      <option>All Categories</option>
+                      <option>Catering</option>
+                      <option>Photography</option>
+                      <option>Music</option>
+                      <option>Decoration</option>
+                    </select>
+                    <button style={{
+                      background: '#f4f6fb',
+                      color: '#374151',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: 6,
+                      padding: '8px 16px',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}>
+                      Filter
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Trending Vendor Cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 20 }}>
+                  {/* Sample Trending Vendor Card */}
+                  <div style={{
+                    border: '1px solid #e5e7eb',
+                    borderRadius: 12,
+                    padding: 20,
+                    background: '#fff',
+                    transition: 'box-shadow 0.2s',
+                    cursor: 'pointer',
+                    position: 'relative',
+                  }}>
+                    <div style={{
+                      position: 'absolute',
+                      top: 12,
+                      right: 12,
+                      background: '#ef4444',
+                      color: '#fff',
+                      padding: '4px 8px',
+                      borderRadius: 12,
+                      fontSize: 11,
+                      fontWeight: 600,
+                    }}>
+                      🔥 HOT
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                      <div>
+                        <h3 style={{ fontSize: 16, fontWeight: 600, color: '#374151', marginBottom: 4 }}>Dream Photography</h3>
+                        <p style={{ fontSize: 13, color: '#6b7280' }}>Trending this week</p>
+                      </div>
+                    </div>
+                    <div style={{ marginBottom: 16 }}>
+                      <p style={{ fontSize: 14, color: '#374151', marginBottom: 8 }}>
+                        <strong>Rating:</strong> ⭐⭐⭐⭐⭐ (4.8/5)
+                      </p>
+                      <p style={{ fontSize: 14, color: '#374151', marginBottom: 8 }}>
+                        <strong>Bookings:</strong> 47 this month
+                      </p>
+                      <p style={{ fontSize: 14, color: '#374151' }}>
+                        <strong>Specialty:</strong> Wedding Photography
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button style={{
+                        background: '#ef4444',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: 6,
+                        padding: '8px 16px',
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}>
+                        Book Now
+                      </button>
+                      <button style={{
+                        background: '#f4f6fb',
+                        color: '#374151',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: 6,
+                        padding: '8px 16px',
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}>
+                        View Portfolio
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Empty State */}
+                  <div style={{
+                    border: '2px dashed #e5e7eb',
+                    borderRadius: 12,
+                    padding: 40,
+                    background: '#f9fafb',
+                    textAlign: 'center',
+                    color: '#6b7280',
+                  }}>
+                    <div style={{ fontSize: 48, marginBottom: 16 }}>🔥</div>
+                    <h3 style={{ fontSize: 18, fontWeight: 600, color: '#374151', marginBottom: 8 }}>
+                      No Trending Vendors
+                    </h3>
+                    <p style={{ fontSize: 14, marginBottom: 16 }}>
+                      Check back later for trending vendors in your area
+                    </p>
+                    <button style={{
+                      background: '#ef4444',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 6,
+                      padding: '8px 16px',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}>
+                      Refresh
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        );
+
+      default:
+        return null;
+    }
+  };
 
   return (
     <>
@@ -347,87 +798,7 @@ export default function VendorsPage() {
         searchButton={{ onClick: () => alert('Search clicked!') }}
       />
       <div style={pageWrapperStyle}>
-        <form style={formStyle} onSubmit={handleVendorSubmit} id="vendor-form">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 18 }}>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <label style={labelStyle}>Name *</label>
-              <input style={inputStyle} name="name" value={vendorForm.name} onChange={handleChange} placeholder="Vendor Name" />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <label style={labelStyle}>Date *</label>
-              <input style={inputStyle} name="date" type="date" value={vendorForm.date} onChange={handleChange} />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <label style={labelStyle}>Start Time *</label>
-              <input style={inputStyle} name="start_time" type="time" value={vendorForm.start_time} onChange={handleChange} />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <label style={labelStyle}>End Time</label>
-              <input style={inputStyle} name="end_time" type="time" value={vendorForm.end_time} onChange={handleChange} />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <label style={labelStyle}>Location</label>
-              <input style={inputStyle} name="location" value={vendorForm.location} onChange={handleChange} placeholder="Location" />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <label style={labelStyle}>Type</label>
-              <input style={inputStyle} name="type" value={vendorForm.type} onChange={handleChange} placeholder="Type" />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <label style={labelStyle}>Category</label>
-              <input style={inputStyle} name="category" value={vendorForm.category} onChange={handleChange} placeholder="Category" />
-            </div>
-          </div>
-          {error && <div style={errorStyle}>{error}</div>}
-          {success && <div style={successStyle}>{success}</div>}
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 6 }}>
-            <button style={buttonStyle} type="submit">{editingVendorId ? 'Update Vendor' : 'Add Vendor'}</button>
-            {editingVendorId && (
-              <button
-                type="button"
-                style={{ ...buttonStyle, background: '#f3f4f6', color: '#7c3aed', boxShadow: 'none', border: '1px solid #a78bfa' }}
-                onClick={() => {
-                  setEditingVendorId(null);
-                  setVendorForm({ name: '', date: '', start_time: '', end_time: '', location: '', type: '', category: '' });
-                  setError('');
-                  setSuccess('');
-                }}
-              >
-                Cancel
-              </button>
-            )}
-          </div>
-        </form>
-        <div style={{ width: '100%', overflowX: 'auto', marginTop: 32 }}>
-          <DataGrid
-            rows={vendors}
-            columns={columnsWithHandler}
-            getRowId={(row) => row.id}
-            initialState={columnState ? { ...columnState, pagination: { paginationModel: { pageSize: 5, page: 0 } } } : { pagination: { paginationModel: { pageSize: 5, page: 0 } } }}
-            pageSizeOptions={[5, 10, 25, 50, 100]}
-            disableRowSelectionOnClick
-            onColumnOrderChange={handleColumnOrderChange}
-            onColumnVisibilityModelChange={handleColumnVisibilityModelChange}
-            onColumnWidthChange={handleColumnWidthChange}
-            isCellEditable={isCellEditable}
-            processRowUpdate={handleInlineEditChange}
-            onProcessRowUpdateError={(error) => {
-              setError('Failed to update vendor: ' + (error?.message || error));
-            }}
-            sx={{
-              border: 'none',
-              fontSize: 16,
-              '& .MuiDataGrid-columnHeaders': { bgcolor: '#ede9fe', color: '#7c3aed', fontWeight: 700 },
-              '& .MuiDataGrid-row': { bgcolor: '#fff' },
-              '& .MuiDataGrid-row.Mui-selected, & .MuiDataGrid-row[data-rowindex][data-id].Mui-selected': { bgcolor: '#f3e8ff !important' },
-              '& .MuiDataGrid-row.editing-row': { bgcolor: '#f3e8ff !important' },
-              '& .MuiDataGrid-footerContainer': { bgcolor: '#ede9fe' },
-              '& .center-cell': { textAlign: 'center', justifyContent: 'center', display: 'flex', alignItems: 'center' },
-              width: '100%',
-            }}
-            getRowClassName={(params) => (inlineEditRowId === params.id ? 'editing-row' : '')}
-          />
-        </div>
+        {renderTabContent()}
       </div>
     </>
   );

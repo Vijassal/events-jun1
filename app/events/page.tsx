@@ -4,6 +4,23 @@ import { supabase } from '../../src/lib/supabase';
 import TopToolbar from '../../src/components/TopToolbar';
 import { usePathname } from 'next/navigation';
 
+const useWindowWidth = () => {
+  const [windowWidth, setWindowWidth] = useState(0);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+    };
+
+    window.addEventListener('resize', handleResize);
+    handleResize();
+
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  return windowWidth;
+};
+
 // Event and Sub-Event Types
 interface EventData {
   id: string;
@@ -152,6 +169,10 @@ function EditSubEventModal({ open, subEvent, onClose, onUpdate, onDelete, errorM
 }
 
 export default function EventsPage() {
+  const windowWidth = useWindowWidth();
+  // Add state for active tab
+  const [activeTab, setActiveTab] = useState<'all' | 'addEvent' | 'addSubEvent'>('all');
+  
   // State for Events and Sub-Events
   const [events, setEvents] = useState<EventData[]>([]);
   const [subEvents, setSubEvents] = useState<SubEventData[]>([]);
@@ -262,9 +283,6 @@ export default function EventsPage() {
   // Edit state
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
 
-  // Tab state
-  const [activeTab, setActiveTab] = useState<'diagram' | 'addEvent' | 'addSubEvent'>('diagram');
-
   // Edit modal state
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editEvent, setEditEvent] = useState<EventData | null>(null);
@@ -313,7 +331,6 @@ export default function EventsPage() {
       fetchSubEvents();
       fetchVendors();
     }
-    console.log('accountInstanceId:', accountInstanceId); // Debug
   }, [accountInstanceId]);
 
   // Update fetchEvents to filter by account_instance_id
@@ -322,7 +339,6 @@ export default function EventsPage() {
     const { data, error } = await supabase.from('events').select('*').eq('account_instance_id', accountInstanceId).order('date', { ascending: true });
     if (error) setEvents([]);
     else setEvents(data || []);
-    console.log('Fetched events:', data, 'Error:', error); // Debug
   };
 
   // Update fetchSubEvents to filter by account_instance_id
@@ -339,7 +355,6 @@ export default function EventsPage() {
         participantLimit: se.participant_limit,
       }))
     );
-    console.log('Fetched subEvents:', data, 'Error:', error); // Debug
   };
 
   // Fetch vendors for the current account_instance_id
@@ -348,7 +363,6 @@ export default function EventsPage() {
     const { data, error } = await supabase.from('vendors').select('*').eq('account_instance_id', accountInstanceId);
     if (error) setVendors([]);
     else setVendors(data || []);
-    console.log('Fetched vendors:', data, 'Error:', error); // Debug
   };
 
   // Edit event logic
@@ -489,32 +503,6 @@ export default function EventsPage() {
   };
 
   // Tab style variables
-  const tabRowStyle: React.CSSProperties = {
-    display: 'flex',
-    flexDirection: 'row',
-    gap: 0,
-    borderBottom: '1.5px solid #e5e7eb',
-    marginBottom: 18,
-    justifyContent: 'center',
-  };
-  const tabStyle: React.CSSProperties = {
-    padding: '10px 28px',
-    fontWeight: 600,
-    fontSize: 15,
-    color: '#7c3aed',
-    background: 'none',
-    border: 'none',
-    borderBottom: '2.5px solid transparent',
-    cursor: 'pointer',
-    outline: 'none',
-    transition: 'border 0.2s, color 0.2s',
-  };
-  const tabActiveStyle: React.CSSProperties = {
-    ...tabStyle,
-    borderBottom: '2.5px solid #7c3aed',
-    color: '#4b5563',
-    background: '#f9fafb',
-  };
   const tagRowStyle: React.CSSProperties = {
     display: 'flex',
     flexDirection: 'row',
@@ -675,28 +663,34 @@ export default function EventsPage() {
   };
 
   const pageWrapperStyle: React.CSSProperties = {
-    width: '100vw',
+    width: '100%',
     minHeight: '100vh',
     position: 'relative',
     margin: 0,
-    paddingLeft: 32,
-    paddingRight: 32,
-    marginTop: 32,
-    marginBottom: 32,
+    padding: '32px',
     boxSizing: 'border-box',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 32,
   };
 
   const pathname = usePathname();
   const navItems = [
-    { label: 'Events', href: '/events', active: true },
+    { 
+      label: 'Events', 
+      href: '/events', 
+      active: true,
+      onClick: () => setActiveTab('all')
+    },
   ];
   const tempButtons = [
-    { label: 'Temp1' },
-    { label: 'Temp2' },
-    { label: 'Temp3' },
+    { 
+      label: 'Add Event',
+      onClick: () => setActiveTab('addEvent'),
+      active: activeTab === 'addEvent'
+    },
+    { 
+      label: 'Add Sub-Event',
+      onClick: () => setActiveTab('addSubEvent'),
+      active: activeTab === 'addSubEvent'
+    },
   ];
 
   return (
@@ -707,121 +701,256 @@ export default function EventsPage() {
         searchButton={{ onClick: () => alert('Search clicked!') }}
       />
       <div style={pageWrapperStyle}>
-        {/* Tabs */}
-        <div style={{
-          ...tabRowStyle,
-          maxWidth: '100vw',
-          width: '100vw',
-          marginLeft: 0,
-          marginRight: 0,
-          paddingLeft: 0,
-          paddingRight: 0,
-        }}>
-          <button style={activeTab === 'diagram' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('diagram')}>All Events</button>
-          <button style={activeTab === 'addEvent' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('addEvent')}>Add Event</button>
-          <button style={activeTab === 'addSubEvent' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('addSubEvent')}>Add Sub-Event</button>
-        </div>
         {/* Tab Content */}
-        {activeTab === 'diagram' && (
-          <>
-            {/* Bubble/tag list above diagram */}
-            <div style={{ marginBottom: 56, minHeight: 60, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100vw', maxWidth: '100vw', padding: 0 }}>
-              <div style={{ fontWeight: 700, color: '#7c3aed', fontSize: 15, marginBottom: 6 }}>Events</div>
-              <div style={{ ...tagRowStyle, minHeight: 36, justifyContent: 'center', width: '100vw', maxWidth: '100vw', padding: 0 }}>
-                {events.length === 0 ? <span style={{ color: '#a1a1aa', fontSize: 13 }}>No events yet.</span> : events.map(ev => (
-                  <span key={ev.id} style={tagStyle}>{ev.name}</span>
-                ))}
-              </div>
-              <div style={{ fontWeight: 700, color: '#7c3aed', fontSize: 15, marginBottom: 6, marginTop: 12 }}>Sub-Events</div>
-              <div style={{ ...tagRowStyle, minHeight: 36, justifyContent: 'center', width: '100vw', maxWidth: '100vw', padding: 0 }}>
-                {subEvents.length === 0 ? <span style={{ color: '#a1a1aa', fontSize: 13 }}>No sub-events yet.</span> : subEvents.map(se => (
-                  <span key={se.id} style={tagSubStyle}>{se.name}</span>
-                ))}
-              </div>
+        {activeTab === 'all' && (
+          <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
+            {/* Header Section */}
+            <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+              <h1 style={{ 
+                fontSize: '32px', 
+                fontWeight: '700', 
+                color: '#1f2937', 
+                marginBottom: '8px',
+                background: 'linear-gradient(135deg, #7c3aed, #a78bfa)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text'
+              }}>
+                Event Timeline
+              </h1>
+              <p style={{ color: '#6b7280', fontSize: '16px', margin: '0' }}>
+                {events.length} Events • {subEvents.length} Sub-Events
+              </p>
             </div>
-            <div style={{ marginTop: 32, marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 32, alignItems: 'center', width: '100vw', maxWidth: '100vw', boxSizing: 'border-box', padding: 0 }}>
-              {events.length === 0 ? (
-                <span style={{ color: '#a1a1aa', fontSize: 16 }}>No events to display.</span>
-              ) : (
-                events.map((ev, idx) => {
-                  const subList = subEvents.filter(se => se.parentEventId === ev.id && se.account_instance_id === accountInstanceId);
+
+            {/* Events Grid */}
+            {events.length === 0 ? (
+              <div style={{ 
+                textAlign: 'center', 
+                padding: '60px 20px',
+                background: 'linear-gradient(135deg, #f8fafc, #f1f5f9)',
+                borderRadius: '16px',
+                border: '2px dashed #cbd5e1'
+              }}>
+                <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎉</div>
+                <h3 style={{ color: '#475569', fontSize: '20px', fontWeight: '600', marginBottom: '8px' }}>
+                  No Events Yet
+                </h3>
+                <p style={{ color: '#64748b', fontSize: '14px', margin: '0' }}>
+                  Create your first event to get started
+                </p>
+              </div>
+            ) : (
+              <div style={{ 
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))',
+                gap: '24px',
+              }}>
+                {events.map((event, index) => {
+                  const eventSubEvents = subEvents.filter(se => se.parentEventId === event.id);
+                  const eventDate = new Date(event.date);
+                  const isToday = new Date().toDateString() === eventDate.toDateString();
+                  const isPast = eventDate < new Date();
+                  const isUpcoming = eventDate > new Date();
+                  
                   return (
-                    <React.Fragment key={ev.id}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 32, justifyContent: 'center', width: '100vw', maxWidth: '100vw', flexWrap: 'wrap', boxSizing: 'border-box', padding: 0 }}>
-                        {/* Event Box */}
-                        <div
-                          style={{
-                            background: '#ede9fe',
-                            border: '1.5px solid #a78bfa',
-                            borderRadius: 12,
-                            padding: '18px 28px',
-                            minWidth: 180,
-                            fontWeight: 700,
-                            color: '#7c3aed',
-                            fontSize: 17,
-                            boxShadow: '0 2px 8px rgba(124, 58, 237, 0.06)',
-                            position: 'relative',
-                            cursor: 'pointer',
-                            transition: 'box-shadow 0.2s',
-                          }}
-                          onClick={() => handleOpenEditModal(ev)}
-                          title="Click to edit or delete"
-                        >
-                          {ev.name}
-                          <div style={{ color: '#6b7280', fontWeight: 400, fontSize: 14, marginTop: 4 }}>
-                            {ev.date}, {formatTime12hr(ev.startTime)} - {formatTime12hr(ev.endTime)}
-                          </div>
-                          <div style={{ color: '#a1a1aa', fontWeight: 400, fontSize: 13 }}>{ev.location} | {ev.type} | {ev.category}</div>
+                    <div key={event.id} style={{
+                      background: 'white',
+                      borderRadius: '20px',
+                      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+                      border: '1px solid #f1f5f9',
+                      overflow: 'hidden',
+                      transition: 'all 0.3s ease',
+                      cursor: 'pointer',
+                      position: 'relative',
+                    }} onClick={() => handleOpenEditModal(event)}>
+                      
+                      {/* Status Badge */}
+                      <div style={{
+                        position: 'absolute',
+                        top: '16px',
+                        right: '16px',
+                        padding: '4px 12px',
+                        borderRadius: '20px',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        ...(isToday ? {
+                          background: '#fef3c7',
+                          color: '#d97706'
+                        } : isPast ? {
+                          background: '#fee2e2',
+                          color: '#dc2626'
+                        } : {
+                          background: '#dbeafe',
+                          color: '#2563eb'
+                        })
+                      }}>
+                        {isToday ? 'Today' : isPast ? 'Past' : 'Upcoming'}
+                      </div>
+
+                      {/* Event Header */}
+                      <div style={{
+                        background: 'linear-gradient(135deg, #7c3aed, #a78bfa)',
+                        padding: '24px',
+                        color: 'white'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                          <div style={{ fontSize: '24px' }}>🎯</div>
+                          <h3 style={{ 
+                            fontSize: '24px', 
+                            fontWeight: '700', 
+                            margin: '0',
+                            textShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                          }}>
+                            {event.name}
+                          </h3>
                         </div>
-                        {/* Connection and Sub-Events */}
-                        {subList.length > 0 && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-                            {/* Vertical line */}
-                            <div style={{ width: 18, display: 'flex', justifyContent: 'center' }}>
-                              <div style={{ width: 2, height: 48 * subList.length, background: '#a78bfa', marginTop: 8 }} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '14px', opacity: '0.9' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span>📅</span>
+                            <span>{new Date(event.date).toLocaleDateString('en-US', { 
+                              weekday: 'long', 
+                              year: 'numeric', 
+                              month: 'long', 
+                              day: 'numeric' 
+                            })}</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span>🕐</span>
+                            <span>{formatTime12hr(event.startTime)} - {formatTime12hr(event.endTime)}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Event Details */}
+                      <div style={{ padding: '20px 24px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '16px' }}>📍</span>
+                            <span style={{ color: '#374151', fontWeight: '500' }}>{event.location}</span>
+                          </div>
+                          {event.type && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '16px' }}>🏷️</span>
+                              <span style={{ color: '#374151', fontWeight: '500' }}>{event.type}</span>
                             </div>
-                            {/* Sub-Event Boxes */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-                              {subList.map(se => (
-                                <div
-                                  key={se.id}
-                                  style={{
-                                    background: '#f3f4f6',
-                                    border: '1.5px solid #a1a1aa',
-                                    borderRadius: 10,
-                                    padding: '12px 20px',
-                                    minWidth: 140,
-                                    fontWeight: 600,
-                                    color: '#4b5563',
-                                    fontSize: 15,
-                                    boxShadow: '0 1px 4px rgba(124, 58, 237, 0.04)',
-                                    cursor: 'pointer',
-                                    transition: 'box-shadow 0.2s',
-                                  }}
-                                  onClick={() => handleOpenEditSubModal(se)}
-                                  title="Click to edit or delete"
-                                >
-                                  {se.name}
-                                  <div style={{ color: '#6b7280', fontWeight: 400, fontSize: 13, marginTop: 2 }}>
-                                    {se.date}, {formatTime12hr(se.startTime)} - {formatTime12hr(se.endTime)}
+                          )}
+                          {event.category && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '16px' }}>📂</span>
+                              <span style={{ color: '#374151', fontWeight: '500' }}>{event.category}</span>
+                            </div>
+                          )}
+                          {event.participantLimit && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '16px' }}>👥</span>
+                              <span style={{ color: '#374151', fontWeight: '500' }}>Limit: {event.participantLimit}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Tags */}
+                        {event.tags && (
+                          <div style={{ marginBottom: '20px' }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                              {event.tags.split(',').map((tag, idx) => (
+                                <span key={idx} style={{
+                                  background: '#f3f4f6',
+                                  color: '#374151',
+                                  padding: '4px 12px',
+                                  borderRadius: '12px',
+                                  fontSize: '12px',
+                                  fontWeight: '500'
+                                }}>
+                                  {tag.trim()}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Sub-Events Section */}
+                        {eventSubEvents.length > 0 && (
+                          <div style={{ 
+                            borderTop: '1px solid #e5e7eb', 
+                            paddingTop: '20px',
+                            marginTop: '20px'
+                          }}>
+                            <div style={{ 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              gap: '8px', 
+                              marginBottom: '16px',
+                              color: '#6b7280',
+                              fontSize: '14px',
+                              fontWeight: '600'
+                            }}>
+                              <span>🔗</span>
+                              <span>Connected Sub-Events ({eventSubEvents.length})</span>
+                            </div>
+                            <div style={{ display: 'grid', gap: '12px' }}>
+                              {eventSubEvents.map(subEvent => (
+                                <div key={subEvent.id} style={{
+                                  background: '#f8fafc',
+                                  border: '1px solid #e2e8f0',
+                                  borderRadius: '12px',
+                                  padding: '16px',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s ease',
+                                  position: 'relative'
+                                }} onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenEditSubModal(subEvent);
+                                }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                    <span style={{ fontSize: '14px' }}>⚡</span>
+                                    <h4 style={{ 
+                                      fontSize: '16px', 
+                                      fontWeight: '600', 
+                                      color: '#1f2937',
+                                      margin: '0'
+                                    }}>
+                                      {subEvent.name}
+                                    </h4>
                                   </div>
-                                  <div style={{ color: '#a1a1aa', fontWeight: 400, fontSize: 12 }}>{se.location} | {se.type} | {se.category}</div>
+                                  <div style={{ 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    gap: '12px', 
+                                    fontSize: '13px',
+                                    color: '#6b7280'
+                                  }}>
+                                    <span>📅 {new Date(subEvent.date).toLocaleDateString()}</span>
+                                    <span>🕐 {formatTime12hr(subEvent.startTime)} - {formatTime12hr(subEvent.endTime)}</span>
+                                    <span>📍 {subEvent.location}</span>
+                                  </div>
                                 </div>
                               ))}
                             </div>
                           </div>
                         )}
+
+                        {/* Empty State for Sub-Events */}
+                        {eventSubEvents.length === 0 && (
+                          <div style={{ 
+                            borderTop: '1px solid #e5e7eb', 
+                            paddingTop: '20px',
+                            marginTop: '20px',
+                            textAlign: 'center',
+                            color: '#9ca3af',
+                            fontSize: '14px'
+                          }}>
+                            <div style={{ marginBottom: '8px' }}>🔗</div>
+                            <span>No sub-events connected</span>
+                          </div>
+                        )}
                       </div>
-                      {/* Divider between event groups */}
-                      {idx < events.length - 1 && (
-                        <div style={{ borderTop: '1.5px solid #e5e7eb', margin: '32px 0 0 0', width: '100vw', maxWidth: '100vw' }} />
-                      )}
-                    </React.Fragment>
+                    </div>
                   );
-                })
-              )}
-            </div>
-          </>
+                })}
+              </div>
+            )}
+          </div>
         )}
         {activeTab === 'addEvent' && (
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100vw', maxWidth: '100vw', padding: 0 }}>

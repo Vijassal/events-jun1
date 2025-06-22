@@ -3,6 +3,8 @@ import { useState, useRef, ChangeEvent, FormEvent, useEffect } from "react";
 import { supabase } from '../../src/lib/supabase';
 import TopToolbar from '../../src/components/TopToolbar';
 
+const LOCAL_STORAGE_KEY = 'planPageSettings';
+
 const TABS = [
   { key: "agenda", label: "Agenda" },
   { key: "calendar", label: "Calendar" },
@@ -102,78 +104,82 @@ function TaskModal({ open, onClose, onSave, date }: TaskModalProps) {
   }
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
-      <div className="bg-white text-gray-900 rounded-lg shadow-xl w-full max-w-lg p-6 relative overflow-y-auto max-h-[90vh]">
-        <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-2xl" onClick={onClose}>&times;</button>
-        <h2 className="text-xl font-bold mb-4">Add Itinerary Item</h2>
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <div>
-            <label className="block font-semibold">Title<span className="text-red-500">*</span></label>
-            <input className="border rounded px-2 py-1 w-full" value={title} onChange={e => setTitle(e.target.value)} required maxLength={60} />
-          </div>
-          <div>
-            <label className="block font-semibold">Date</label>
-            <input className="border rounded px-2 py-1 w-full bg-gray-100" value={date} readOnly />
-          </div>
-          <div>
-            <label className="block font-semibold">Notes</label>
-            <textarea className="border rounded px-2 py-1 w-full" value={notes} onChange={e => setNotes(e.target.value)} rows={2} />
-          </div>
-          <div>
-            <label className="block font-semibold">Assignee</label>
-            <input className="border rounded px-2 py-1 w-full" value={assignee} onChange={e => setAssignee(e.target.value)} />
-          </div>
-          <div>
-            <label className="block font-semibold">Budget</label>
-            <input className="border rounded px-2 py-1 w-full" value={budget} onChange={e => setBudget(e.target.value)} />
-          </div>
-          <div>
-            <label className="block font-semibold">Tag</label>
-            <input className="border rounded px-2 py-1 w-full" value={tag} onChange={e => setTag(e.target.value)} />
-          </div>
-          <div>
-            <label className="block font-semibold">Reminder</label>
-            <input type="datetime-local" className="border rounded px-2 py-1 w-full bg-white text-gray-900" value={reminder} onChange={e => setReminder(e.target.value)} />
-          </div>
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <label className="block font-semibold">Start Time</label>
-              <input type="time" className="border rounded px-2 py-1 w-full" value={startTime} onChange={e => setStartTime(e.target.value)} />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 p-4">
+      <div className="bg-white text-gray-900 rounded-lg shadow-xl w-full max-w-lg max-h-[95vh] relative overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b px-4 py-3 flex items-center justify-between">
+          <h2 className="text-lg sm:text-xl font-bold">Add Itinerary Item</h2>
+          <button className="text-gray-400 hover:text-gray-700 text-2xl" onClick={onClose}>&times;</button>
+        </div>
+        <div className="p-4 sm:p-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block font-semibold text-sm sm:text-base">Title<span className="text-red-500">*</span></label>
+              <input className="border rounded px-3 py-2 w-full text-sm sm:text-base" value={title} onChange={e => setTitle(e.target.value)} required maxLength={60} />
             </div>
-            <div className="flex-1">
-              <label className="block font-semibold">End Time</label>
-              <input type="time" className="border rounded px-2 py-1 w-full" value={endTime} onChange={e => setEndTime(e.target.value)} />
+            <div>
+              <label className="block font-semibold text-sm sm:text-base">Date</label>
+              <input className="border rounded px-3 py-2 w-full bg-gray-100 text-sm sm:text-base" value={date} readOnly />
             </div>
-          </div>
-          <div>
-            <label className="block font-semibold">Location</label>
-            <input className="border rounded px-2 py-1 w-full" value={location} onChange={e => setLocation(e.target.value)} />
-          </div>
-          <div>
-            <label className="block font-semibold">Attach Files</label>
-            <input type="file" className="border rounded px-2 py-1 w-full" onChange={handleFileChange} multiple />
-            <div className="text-xs text-gray-500 mt-1">(File upload is a placeholder, files are not saved)</div>
-          </div>
-          <div>
-            <label className="block font-semibold">To Do List</label>
-            <div className="flex gap-2 mb-2">
-              <input className="border rounded px-2 py-1 flex-1" value={todoInput} onChange={e => setTodoInput(e.target.value)} placeholder="Add to-do item" />
-              <button className="px-2 py-1 bg-blue-600 text-white rounded" onClick={handleAddTodo}>Add</button>
+            <div>
+              <label className="block font-semibold text-sm sm:text-base">Notes</label>
+              <textarea className="border rounded px-3 py-2 w-full text-sm sm:text-base" value={notes} onChange={e => setNotes(e.target.value)} rows={2} />
             </div>
-            <ul className="space-y-1">
-              {todoList.map((item, idx) => (
-                <li key={idx} className="flex items-center gap-2">
-                  <span className="flex-1">{item}</span>
-                  <button type="button" className="text-red-500" onClick={() => handleRemoveTodo(idx)}>Remove</button>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="flex justify-end gap-2 mt-4">
-            <button type="button" className="px-4 py-2 bg-gray-200 rounded" onClick={onClose}>Cancel</button>
-            <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded font-semibold">Save</button>
-          </div>
-        </form>
+            <div>
+              <label className="block font-semibold text-sm sm:text-base">Assignee</label>
+              <input className="border rounded px-3 py-2 w-full text-sm sm:text-base" value={assignee} onChange={e => setAssignee(e.target.value)} />
+            </div>
+            <div>
+              <label className="block font-semibold text-sm sm:text-base">Budget</label>
+              <input className="border rounded px-3 py-2 w-full text-sm sm:text-base" value={budget} onChange={e => setBudget(e.target.value)} />
+            </div>
+            <div>
+              <label className="block font-semibold text-sm sm:text-base">Tag</label>
+              <input className="border rounded px-3 py-2 w-full text-sm sm:text-base" value={tag} onChange={e => setTag(e.target.value)} />
+            </div>
+            <div>
+              <label className="block font-semibold text-sm sm:text-base">Reminder</label>
+              <input type="datetime-local" className="border rounded px-3 py-2 w-full bg-white text-gray-900 text-sm sm:text-base" value={reminder} onChange={e => setReminder(e.target.value)} />
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex-1">
+                <label className="block font-semibold text-sm sm:text-base">Start Time</label>
+                <input type="time" className="border rounded px-3 py-2 w-full text-sm sm:text-base" value={startTime} onChange={e => setStartTime(e.target.value)} />
+              </div>
+              <div className="flex-1">
+                <label className="block font-semibold text-sm sm:text-base">End Time</label>
+                <input type="time" className="border rounded px-3 py-2 w-full text-sm sm:text-base" value={endTime} onChange={e => setEndTime(e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <label className="block font-semibold text-sm sm:text-base">Location</label>
+              <input className="border rounded px-3 py-2 w-full text-sm sm:text-base" value={location} onChange={e => setLocation(e.target.value)} />
+            </div>
+            <div>
+              <label className="block font-semibold text-sm sm:text-base">Attach Files</label>
+              <input type="file" className="border rounded px-3 py-2 w-full text-sm sm:text-base" onChange={handleFileChange} multiple />
+              <div className="text-xs text-gray-500 mt-1">(File upload is a placeholder, files are not saved)</div>
+            </div>
+            <div>
+              <label className="block font-semibold text-sm sm:text-base">To Do List</label>
+              <div className="flex flex-col sm:flex-row gap-2 mb-2">
+                <input className="border rounded px-3 py-2 flex-1 text-sm sm:text-base" value={todoInput} onChange={e => setTodoInput(e.target.value)} placeholder="Add to-do item" />
+                <button className="px-3 py-2 bg-blue-600 text-white rounded text-sm sm:text-base" onClick={handleAddTodo}>Add</button>
+              </div>
+              <ul className="space-y-1">
+                {todoList.map((item, idx) => (
+                  <li key={idx} className="flex items-center gap-2">
+                    <span className="flex-1 text-sm sm:text-base">{item}</span>
+                    <button type="button" className="text-red-500 text-sm sm:text-base" onClick={() => handleRemoveTodo(idx)}>Remove</button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="flex flex-col sm:flex-row justify-end gap-2 mt-6 pt-4 border-t">
+              <button type="button" className="px-4 py-2 bg-gray-200 rounded text-sm sm:text-base" onClick={onClose}>Cancel</button>
+              <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded font-semibold text-sm sm:text-base">Save</button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );
@@ -182,32 +188,36 @@ function TaskModal({ open, onClose, onSave, date }: TaskModalProps) {
 function TaskDetailModal({ task, onClose }: { task: Task; onClose: () => void }) {
   if (!task) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
-      <div className="bg-white text-gray-900 rounded-lg shadow-xl w-full max-w-lg p-6 relative overflow-y-auto max-h-[90vh]">
-        <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-2xl" onClick={onClose}>&times;</button>
-        <h2 className="text-xl font-bold mb-4">Itinerary Item Details</h2>
-        <div className="space-y-2">
-          <div><span className="font-semibold">Title:</span> {task.title}</div>
-          <div><span className="font-semibold">Date:</span> {task.date}</div>
-          {task.notes && <div><span className="font-semibold">Notes:</span> {task.notes}</div>}
-          {task.assignee && <div><span className="font-semibold">Assignee:</span> {task.assignee}</div>}
-          {task.budget && <div><span className="font-semibold">Budget:</span> {task.budget}</div>}
-          {task.tag && <div><span className="font-semibold">Tag:</span> {task.tag}</div>}
-          {task.reminder && <div><span className="font-semibold">Reminder:</span> {task.reminder}</div>}
-          {task.startTime && <div><span className="font-semibold">Start Time:</span> {task.startTime}</div>}
-          {task.endTime && <div><span className="font-semibold">End Time:</span> {task.endTime}</div>}
-          {task.location && <div><span className="font-semibold">Location:</span> {task.location}</div>}
-          {task.todoList.length > 0 && (
-            <div>
-              <span className="font-semibold">To Do List:</span>
-              <ul className="list-disc ml-6">
-                {task.todoList.map((item, idx) => <li key={idx}>{item}</li>)}
-              </ul>
-            </div>
-          )}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 p-4">
+      <div className="bg-white text-gray-900 rounded-lg shadow-xl w-full max-w-lg max-h-[95vh] relative overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b px-4 py-3 flex items-center justify-between">
+          <h2 className="text-lg sm:text-xl font-bold">Itinerary Item Details</h2>
+          <button className="text-gray-400 hover:text-gray-700 text-2xl" onClick={onClose}>&times;</button>
         </div>
-        <div className="flex justify-end mt-4">
-          <button className="px-4 py-2 bg-blue-600 text-white rounded font-semibold" onClick={onClose}>Close</button>
+        <div className="p-4 sm:p-6">
+          <div className="space-y-3">
+            <div><span className="font-semibold text-sm sm:text-base">Title:</span> <span className="text-sm sm:text-base">{task.title}</span></div>
+            <div><span className="font-semibold text-sm sm:text-base">Date:</span> <span className="text-sm sm:text-base">{task.date}</span></div>
+            {task.notes && <div><span className="font-semibold text-sm sm:text-base">Notes:</span> <span className="text-sm sm:text-base">{task.notes}</span></div>}
+            {task.assignee && <div><span className="font-semibold text-sm sm:text-base">Assignee:</span> <span className="text-sm sm:text-base">{task.assignee}</span></div>}
+            {task.budget && <div><span className="font-semibold text-sm sm:text-base">Budget:</span> <span className="text-sm sm:text-base">{task.budget}</span></div>}
+            {task.tag && <div><span className="font-semibold text-sm sm:text-base">Tag:</span> <span className="text-sm sm:text-base">{task.tag}</span></div>}
+            {task.reminder && <div><span className="font-semibold text-sm sm:text-base">Reminder:</span> <span className="text-sm sm:text-base">{task.reminder}</span></div>}
+            {task.startTime && <div><span className="font-semibold text-sm sm:text-base">Start Time:</span> <span className="text-sm sm:text-base">{task.startTime}</span></div>}
+            {task.endTime && <div><span className="font-semibold text-sm sm:text-base">End Time:</span> <span className="text-sm sm:text-base">{task.endTime}</span></div>}
+            {task.location && <div><span className="font-semibold text-sm sm:text-base">Location:</span> <span className="text-sm sm:text-base">{task.location}</span></div>}
+            {task.todoList.length > 0 && (
+              <div>
+                <span className="font-semibold text-sm sm:text-base">To Do List:</span>
+                <ul className="list-disc ml-6 mt-1">
+                  {task.todoList.map((item, idx) => <li key={idx} className="text-sm sm:text-base">{item}</li>)}
+                </ul>
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end mt-6 pt-4 border-t">
+            <button className="px-4 py-2 bg-blue-600 text-white rounded font-semibold text-sm sm:text-base" onClick={onClose}>Close</button>
+          </div>
         </div>
       </div>
     </div>
@@ -218,226 +228,716 @@ interface VendorData {
   id: string;
   name: string;
   date: string;
-  time: string;
+  start_time: string;
+  end_time: string;
   location: string;
   type: string;
   category: string;
+  account_instance_id?: string;
 }
 
-// Add event and sub-event types
 interface EventData {
   id: string;
   name: string;
   date: string;
-  time: string;
+  startTime: string;
+  endTime: string;
   location: string;
   type: string;
   category: string;
   participantLimit?: string;
   tags?: string;
-}
-interface SubEventData {
-  id: string;
-  parentEventId: string;
-  name: string;
-  date: string;
-  time: string;
-  location: string;
-  type: string;
-  category: string;
-  participantLimit?: string;
-  tags?: string;
+  account_instance_id?: string;
 }
 
-// Update BlockTooltip to accept x/y and use position: fixed, z-index: 99999
+interface SubEventData {
+  id: string;
+  parent_event_id: string;
+  name: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  location: string;
+  type: string;
+  category: string;
+  participantLimit?: string;
+  tags?: string;
+  account_instance_id?: string;
+}
+
+// Modern BlockTooltip component
 function BlockTooltip({ item, x, y }: { item: any, x?: number, y?: number }) {
+  if (!item) return null;
+  
   const style: React.CSSProperties = {
     position: 'fixed',
     zIndex: 99999,
-    left: x !== undefined ? x + 12 : undefined,
-    top: y !== undefined ? y + 12 : undefined,
-    minWidth: 180,
-    maxWidth: 320,
-    pointerEvents: 'none',
-    background: '#111827',
-    color: 'white',
-    borderRadius: 8,
-    padding: '10px 14px',
-    fontSize: 13,
-    boxShadow: '0 4px 24px 0 rgba(0,0,0,0.18)',
-    ...((x === undefined || y === undefined) ? { position: 'absolute', left: '100%', top: 0, zIndex: 99999 } : {}),
+    left: x ? x + 10 : '50%',
+    top: y ? y - 10 : '50%',
+    transform: x && y ? 'none' : 'translate(-50%, -100%)',
+    background: 'white',
+    border: '1px solid #e5e7eb',
+    borderRadius: '8px',
+    padding: '12px',
+    boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
+    maxWidth: '300px',
+    fontSize: '14px',
+    lineHeight: '1.4',
   };
+
   return (
-    <div style={style} className="pointer-events-none">
-      <div className="font-bold mb-1">{item.blockType === 'event' ? 'Event' : item.blockType === 'subevent' ? 'Sub-Event' : 'Vendor'}</div>
-      <div><span className="font-semibold">Title:</span> {item.title}</div>
-      <div><span className="font-semibold">Time:</span> {item.startTime} - {item.endTime}</div>
-      {item.location && <div><span className="font-semibold">Location:</span> {item.location}</div>}
-      {item.notes && <div><span className="font-semibold">Notes:</span> {item.notes}</div>}
+    <div style={style} className="bg-white rounded-lg shadow-lg border border-gray-200 p-3">
+      <div className="font-semibold text-gray-900 mb-1">{item.title}</div>
+      <div className="text-sm text-gray-600 mb-2">
+        {item.startTime} - {item.endTime}
+        {item.location && ` • ${item.location}`}
+      </div>
+      <div className="flex items-center gap-2">
+        <div 
+          className="w-3 h-3 rounded-full" 
+          style={{ backgroundColor: item.color || '#3b82f6' }}
+        />
+        <span className="text-xs text-gray-500 capitalize">
+          {item.blockType === 'event' ? 'Event' : 
+           item.blockType === 'subevent' ? 'Sub-Event' : 
+           item.blockType === 'vendor' ? 'Vendor' : 'Item'}
+        </span>
+      </div>
     </div>
   );
 }
 
-// Utility to determine if a color is light or dark
 function isColorDark(hex: string) {
-  // Remove hash if present
-  hex = hex.replace('#', '');
-  // Convert 3-digit hex to 6-digit
-  if (hex.length === 3) {
-    hex = hex.split('').map(x => x + x).join('');
-  }
-  const r = parseInt(hex.substring(0, 2), 16);
-  const g = parseInt(hex.substring(2, 4), 16);
-  const b = parseInt(hex.substring(4, 6), 16);
-  // Perceived brightness formula
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
   const brightness = (r * 299 + g * 587 + b * 114) / 1000;
   return brightness < 128;
 }
 
-// SectionFilter: props = { title, items, selectedIds, onToggle, colors, onColorChange, filterSearch, showMoreLimit }
-// Handles show more/less, scrollable list, and flex row for each item.
+// Modern SectionFilter component
 function SectionFilter({ title, items, selectedIds, onToggle, colors, onColorChange, filterSearch, showMoreLimit }: any) {
   const [showMore, setShowMore] = useState(false);
-
-  const filteredItems = items.filter((item: any) => item.name.toLowerCase().includes(filterSearch.toLowerCase()));
-  const visibleItems = showMore ? filteredItems : filteredItems.slice(0, showMoreLimit);
+  const filteredItems = items.filter((item: any) => 
+    item.name.toLowerCase().includes(filterSearch.toLowerCase())
+  );
+  const displayItems = showMore ? filteredItems : filteredItems.slice(0, showMoreLimit);
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="font-bold text-base mb-1">{title}</div>
-      <div className="flex flex-col gap-1">
-        {visibleItems.map((item: any) => (
-          <div key={item.id} className="flex items-center justify-between group px-1 py-1 rounded hover:bg-gray-100 transition-colors">
-            <label className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={selectedIds.includes(item.id)}
-                onChange={e => onToggle(item.id)}
-              />
-              <span
-                className="truncate text-sm"
-                style={{ maxWidth: 140 }}
-                title={item.name}
-              >
-                {item.name}
-              </span>
-            </label>
+    <div className="bg-white rounded-lg border border-gray-200 p-4">
+      <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+        {title} ({filteredItems.length})
+      </h3>
+      <div className="space-y-2">
+        {displayItems.map((item: any) => (
+          <div key={item.id} className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={selectedIds.includes(item.id)}
+              onChange={() => onToggle(item.id)}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
             <input
               type="color"
-              value={colors[item.id] || '#cccccc'}
-              onChange={e => onColorChange(item.id, e.target.value)}
-              style={{ width: 24, height: 24, border: 'none', background: 'none', cursor: 'pointer', borderRadius: 4 }}
-              title="Pick color"
+              value={colors[item.id] || '#3b82f6'}
+              onChange={(e) => onColorChange(item.id, e.target.value)}
+              className="w-6 h-6 rounded border border-gray-300 cursor-pointer"
             />
+            <span className="text-sm text-gray-700 flex-1 truncate">{item.name}</span>
           </div>
         ))}
       </div>
       {filteredItems.length > showMoreLimit && (
         <button
-          className="text-blue-500 text-xs mt-1 self-start"
           onClick={() => setShowMore(!showMore)}
+          className="text-blue-600 text-sm hover:text-blue-800 mt-2"
         >
-          {showMore ? 'Show less' : 'Show more'}
+          {showMore ? 'Show Less' : `Show ${filteredItems.length - showMoreLimit} More`}
         </button>
       )}
     </div>
   );
 }
 
+function EventFilterGroup({
+  events,
+  subEvents,
+  selectedEventIds,
+  onToggleEvent,
+  eventColors,
+  onEventColorChange,
+  selectedSubEventIds,
+  onToggleSubEvent,
+  subEventColors,
+  onSubEventColorChange,
+  filterSearch,
+}: any) {
+  const [openEventIds, setOpenEventIds] = useState<string[]>([]);
+
+  const toggleEventCollapse = (eventId: string) => {
+    setOpenEventIds(ids =>
+      ids.includes(eventId) ? ids.filter(id => id !== eventId) : [...ids, eventId]
+    );
+  };
+
+  const filteredEvents = events.filter((event: any) =>
+    event.name.toLowerCase().includes(filterSearch.toLowerCase())
+  );
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 p-4">
+      <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+        <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+        Events & Sub-Events ({filteredEvents.length})
+      </h3>
+      <div className="space-y-3">
+        {filteredEvents.map((event: any) => {
+          const eventSubEvents = subEvents.filter((se: any) => se.parent_event_id === event.id);
+          const isOpen = openEventIds.includes(event.id);
+
+          return (
+            <div key={event.id}>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={selectedEventIds.includes(event.id)}
+                  onChange={() => onToggleEvent(event.id)}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <input
+                  type="color"
+                  value={eventColors[event.id] || '#3b82f6'}
+                  onChange={(e) => onEventColorChange(event.id, e.target.value)}
+                  className="w-6 h-6 rounded border border-gray-300 cursor-pointer"
+                />
+                <span className="text-sm text-gray-700 flex-1 truncate">{event.name}</span>
+                {eventSubEvents.length > 0 && (
+                  <button
+                    onClick={() => toggleEventCollapse(event.id)}
+                    className="p-1 rounded-full hover:bg-gray-100"
+                    aria-label={isOpen ? "Collapse" : "Expand"}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className={`h-4 w-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+              {isOpen && eventSubEvents.length > 0 && (
+                <div className="ml-8 mt-2 space-y-2 pl-4 border-l-2 border-gray-200">
+                  {eventSubEvents.map((subEvent: any) => (
+                    <div key={subEvent.id} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedSubEventIds.includes(subEvent.id)}
+                        onChange={() => onToggleSubEvent(subEvent.id)}
+                        className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                      />
+                      <input
+                        type="color"
+                        value={subEventColors[subEvent.id] || '#8b5cf6'}
+                        onChange={(e) => onSubEventColorChange(subEvent.id, e.target.value)}
+                        className="w-6 h-6 rounded border border-gray-300 cursor-pointer"
+                      />
+                      <span className="text-sm text-gray-600 flex-1 truncate">{subEvent.name}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Moved helper function out of the component
+function getDaysInRange(start: string, end: string) {
+    const days = [];
+    let currentDate = new Date(start + 'T00:00:00');
+    const endDate = new Date(end + 'T00:00:00');
+    while (currentDate <= endDate) {
+        days.push(currentDate.toISOString().slice(0, 10));
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+    return days;
+};
+
+// Moved ItineraryPanel out of ItineraryView to be a standalone component
+const ItineraryPanel = ({ 
+  itemType, 
+  scrollRef, 
+  onScroll,
+  visibleDays,
+  getTodayDateString,
+  timeLabels,
+  getItemsForDay,
+  currentTime,
+  eventColors,
+  subEventColors,
+  vendorColors,
+  isColorDark,
+  setHoveredBlockId,
+  setTooltipPos,
+  setSelectedTask
+}: { 
+  itemType: 'event' | 'vendor', 
+  scrollRef: React.RefObject<HTMLDivElement>, 
+  onScroll: () => void,
+  visibleDays: string[],
+  getTodayDateString: () => string,
+  timeLabels: string[],
+  getItemsForDay: (day: string, itemType: 'event' | 'vendor') => any[],
+  currentTime: Date,
+  eventColors: Record<string, string>,
+  subEventColors: Record<string, string>,
+  vendorColors: Record<string, string>,
+  isColorDark: (hex: string) => boolean,
+  setHoveredBlockId: (id: string | null) => void,
+  setTooltipPos: (pos: { x: number; y: number } | null) => void,
+  setSelectedTask: (task: any) => void
+}) => {
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Header */}
+      <div className="flex sticky top-0 z-20 bg-white border-b border-gray-300 flex-shrink-0">
+        <div className="w-20 flex-shrink-0 border-r border-gray-300" />
+        <div className="flex-1 flex">
+          {visibleDays.map(day => {
+            const isToday = day === getTodayDateString();
+            return (
+              <div key={`${itemType}-header-${day}`} className="flex-1 min-w-[200px] border-l border-gray-300 text-center py-2">
+                <div className="text-sm text-gray-500">{new Date(day + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' })}</div>
+                <div className={`text-2xl font-bold ${isToday ? 'text-blue-600' : 'text-gray-800'}`}>{new Date(day + 'T00:00:00').getDate()}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      {/* Scrolling Content */}
+      <div className="flex-1 overflow-y-auto scrollbar-hide" ref={scrollRef} onScroll={onScroll}>
+        <div className="flex relative pb-8" style={{ height: '1920px' }}>
+          {/* Time Gutter */}
+          <div className="w-20 flex-shrink-0 text-right text-xs text-gray-400 select-none pt-4 sticky left-0 bg-white z-10 border-r border-gray-300">
+            {timeLabels.map(label => (
+              <div key={label} className="relative h-[80px]">
+                <span className="absolute -top-2 right-2">{label}</span>
+              </div>
+            ))}
+          </div>
+          {/* Day Columns */}
+          <div className="flex-1 flex">
+            {visibleDays.map(day => {
+              const isToday = day === getTodayDateString();
+              const itemsForDay = getItemsForDay(day, itemType);
+              return (
+                <div key={`${itemType}-col-${day}`} className="flex-1 min-w-[200px] border-l border-gray-300 relative">
+                  <div className="absolute inset-0 z-0">
+                    {timeLabels.map((_, i) => (
+                      <div key={i} className="h-[80px] border-t border-gray-300"></div>
+                    ))}
+                  </div>
+                  {isToday && <div className="absolute inset-0 bg-blue-50 opacity-50 z-0"></div>}
+                  {isToday && (
+                    <div className="absolute w-full flex items-center z-10" style={{ top: `${(currentTime.getHours() * 60 + currentTime.getMinutes()) / 1440 * 1920}px` }}>
+                      <div className="w-2 h-2 rounded-full bg-red-500 -ml-1 z-10"></div>
+                      <div className="flex-grow h-0.5 bg-red-500"></div>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 z-10">
+                    {itemsForDay.map((item: any) => {
+                      const width = 100 / item.numCols;
+                      const left = item.colIndex * width;
+                      const top = (item.relativeStartMinutes / 1440) * 1920;
+                      const height = (item.duration / 1440) * 1920;
+                      const isSmall = height < 40;
+                      const isTiny = height < 25;
+                      const getTypeIcon = () => {
+                        switch (item.blockType) {
+                          case 'event': return '🎉';
+                          case 'subevent': return '📅';
+                          case 'vendor': return '👥';
+                          default: return '📋';
+                        }
+                      };
+                      const getColor = () => {
+                        const id = item.id.split('-').slice(1).join('-');
+                        if (item.blockType === 'event') return eventColors[id] || '#3B82F6';
+                        if (item.blockType === 'subevent') return subEventColors[id] || '#10B981';
+                        if (item.blockType === 'vendor') return vendorColors[id] || '#F59E0B';
+                        return '#6B7280';
+                      };
+                      const color = getColor();
+                      const isDarkColor = isColorDark(color);
+                      return (
+                        <div
+                          key={item.id}
+                          className="absolute rounded-lg shadow-sm cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] border border-white/20 p-1"
+                          style={{ top: `${top}px`, left: `${left}%`, width: `${width}%`, height: `${height}px`, backgroundColor: color, color: isDarkColor ? 'white' : 'black' }}
+                          onMouseEnter={(e) => { setHoveredBlockId(item.id); setTooltipPos({ x: e.clientX, y: e.clientY }); }}
+                          onMouseLeave={() => { setHoveredBlockId(null); setTooltipPos(null); }}
+                          onClick={() => setSelectedTask(item)}
+                        >
+                          <div className="h-full flex flex-col">
+                            <div className="flex items-start gap-1 flex-shrink-0">
+                              <span className="text-xs">{getTypeIcon()}</span>
+                              {!isTiny && <span className="text-xs font-medium truncate flex-1">{item.name}</span>}
+                            </div>
+                            {!isSmall && (
+                              <>
+                                <div className="text-xs opacity-90 mt-1">{item.startTime} - {item.endTime}</div>
+                                {item.location && !isTiny && <div className="text-xs opacity-75 truncate mt-1">📍 {item.location}</div>}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Modern day view component - moved out of PlanPage
+const ItineraryView = ({ 
+  type, 
+  agendaStartTime,
+  dateRange,
+  getFilteredItems,
+  eventColors,
+  subEventColors,
+  vendorColors,
+  setHoveredBlockId,
+  setTooltipPos,
+  setSelectedTask
+}: { 
+  type: 'event' | 'vendor' | 'both', 
+  agendaStartTime: number,
+  dateRange: { from: string, to: string },
+  getFilteredItems: (itemType: 'event' | 'vendor') => any[],
+  eventColors: Record<string, string>,
+  subEventColors: Record<string, string>,
+  vendorColors: Record<string, string>,
+  setHoveredBlockId: (id: string | null) => void,
+  setTooltipPos: (pos: { x: number, y: number } | null) => void,
+  setSelectedTask: (task: any) => void
+}) => {
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const eventScrollRef = useRef<HTMLDivElement>(null);
+  const vendorScrollRef = useRef<HTMLDivElement>(null);
+  const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  const handleScroll = (scroller: 'event' | 'vendor') => {
+    if (scrollTimeout.current) {
+      clearTimeout(scrollTimeout.current);
+    }
+
+    const sourceRef = scroller === 'event' ? eventScrollRef : vendorScrollRef;
+    const targetRef = scroller === 'event' ? vendorScrollRef : eventScrollRef;
+
+    if (sourceRef.current && targetRef.current && Math.abs(sourceRef.current.scrollTop - targetRef.current.scrollTop) > 1) {
+      targetRef.current.scrollTop = sourceRef.current.scrollTop;
+    }
+    
+    scrollTimeout.current = setTimeout(() => {
+      // Clear timeout after a short delay
+    }, 50); 
+  };
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    // agendaStartTime is in minutes. Each hour is 80px high.
+    const hour = agendaStartTime / 60;
+    const initialScrollTop = hour * 80;
+
+    if (eventScrollRef.current) {
+      eventScrollRef.current.scrollTop = initialScrollTop;
+    }
+    if (vendorScrollRef.current) {
+      vendorScrollRef.current.scrollTop = initialScrollTop;
+    }
+  }, [type, agendaStartTime]);
+
+  const visibleDays = dateRange.from && dateRange.to ? getDaysInRange(dateRange.from, dateRange.to) : [];
+
+  if (visibleDays.length === 0) {
+    return (
+      <div className="flex-grow flex items-center justify-center text-center py-8 text-gray-500 bg-white">
+        <div>
+          <div className="text-4xl mb-2">📅</div>
+          <p>Please select a valid date range to display the itinerary.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const timeLabels = Array.from({ length: 24 }, (_, i) => {
+    const startHour = agendaStartTime / 60;
+    const hour = (startHour + i) % 24;
+    const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+    const ampm = hour < 12 ? 'AM' : 'PM';
+    if (hour === 0) return `12 AM`;
+    if (hour === 12) return '12 PM';
+    return `${hour12} ${ampm}`;
+  });
+
+  const getItemsForDay = (day: string, itemType: 'event' | 'vendor') => {
+      const filteredItems = getFilteredItems(itemType);
+      const dayItems = filteredItems
+          .filter((item: any) => item.date === day)
+          .map((item: any) => {
+              const [startH, startM] = item.startTime.split(':').map(Number);
+              const [endH, endM] = (item.endTime || '23:59').split(':').map(Number);
+              
+              const startMinutes = startH * 60 + startM;
+              let endMinutes = endH * 60 + endM;
+
+              // Handle events ending at midnight for correct duration
+              if (endMinutes === 0 && startMinutes !== 0) endMinutes = 24 * 60;
+              
+              let duration = endMinutes - startMinutes;
+              // Handle overnight events
+              if (duration < 0) {
+                duration += 1440;
+              }
+
+              // Calculate position relative to the view's start time
+              let relativeStartMinutes;
+              if (startMinutes >= agendaStartTime) {
+                  relativeStartMinutes = startMinutes - agendaStartTime;
+              } else {
+                  relativeStartMinutes = (1440 - agendaStartTime) + startMinutes;
+              }
+              const relativeEndMinutes = relativeStartMinutes + duration;
+              
+              return { ...item, startMinutes, endMinutes, duration, relativeStartMinutes, relativeEndMinutes };
+          })
+          .sort((a: any, b: any) => a.relativeStartMinutes - b.relativeStartMinutes);
+
+      // Overlap detection must now use the relative start/end times
+      const eventGroups: any[][] = [];
+      if (dayItems.length > 0) {
+        let currentGroup = [dayItems[0]];
+        for (let i = 1; i < dayItems.length; i++) {
+          const event = dayItems[i];
+          const groupEndTime = Math.max(...currentGroup.map(e => e.relativeEndMinutes));
+          if (event.relativeStartMinutes < groupEndTime) {
+            currentGroup.push(event);
+          } else {
+            eventGroups.push(currentGroup);
+            currentGroup = [event];
+          }
+        }
+        eventGroups.push(currentGroup);
+      }
+
+      eventGroups.forEach(group => {
+        const columns: any[][] = [];
+        group.sort((a,b) => a.relativeStartMinutes - b.relativeStartMinutes);
+        
+        group.forEach(event => {
+          let placed = false;
+          for (let i = 0; i < columns.length; i++) {
+            if (columns[i][columns[i].length - 1].relativeEndMinutes <= event.relativeStartMinutes) {
+              columns[i].push(event);
+              placed = true;
+              break;
+            }
+          }
+          if (!placed) columns.push([event]);
+        });
+        
+        const numCols = columns.length;
+        columns.forEach((col, colIndex) => {
+          col.forEach((event: any) => {
+            event.numCols = numCols;
+            event.colIndex = colIndex;
+          });
+        });
+      });
+      
+      return dayItems;
+  };
+  
+  const panelProps = {
+    visibleDays,
+    getTodayDateString: () => {
+      const today = new Date();
+      return today.toISOString().slice(0, 10);
+    },
+    timeLabels,
+    getItemsForDay,
+    currentTime,
+    eventColors,
+    subEventColors,
+    vendorColors,
+    isColorDark,
+    setHoveredBlockId,
+    setTooltipPos,
+    setSelectedTask
+  };
+
+  if (type === 'both') {
+    return (
+      <div className="flex flex-col h-full border border-gray-300 rounded-lg overflow-hidden shadow-sm">
+        {/* Main Header */}
+        <div className="flex items-center justify-between p-4 bg-gray-50 border-b border-gray-300 flex-shrink-0">
+          <h3 className="text-lg font-semibold text-gray-900">Shared View - Events & Vendors</h3>
+          <div className="flex items-center gap-4 text-sm text-gray-600">
+            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-500"></div><span>Events</span></div>
+            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-orange-500"></div><span>Vendors</span></div>
+          </div>
+        </div>
+        {/* Content Area */}
+        <div className="flex flex-1 overflow-hidden">
+          <ItineraryPanel itemType="event" scrollRef={eventScrollRef} onScroll={() => handleScroll('event')} {...panelProps} />
+          <div className="w-px bg-gray-300" /> {/* Divider */}
+          <ItineraryPanel itemType="vendor" scrollRef={vendorScrollRef} onScroll={() => handleScroll('vendor')} {...panelProps} />
+        </div>
+      </div>
+    );
+  }
+  
+  // Single View
+  return (
+    <div className="flex flex-col h-full border border-gray-300 rounded-lg overflow-hidden shadow-sm">
+      <ItineraryPanel
+        itemType={type === 'event' ? 'event' : 'vendor'}
+        scrollRef={eventScrollRef}
+        onScroll={() => {}}
+        {...panelProps}
+      />
+    </div>
+  );
+};
+
 export default function PlanPage() {
   const [tab, setTab] = useState("agenda");
-  const today = getToday();
   const [view, setView] = useState<"day" | "week" | "month" | "year">("month");
-  const [current, setCurrent] = useState({ year: today.year, month: today.month });
+  const [current, setCurrent] = useState(getToday());
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [modal, setModal] = useState<{ open: boolean; date: string }>({ open: false, date: '' });
+  const [agendaViewType, setAgendaViewType] = useState<'event' | 'vendor' | 'both'>('both');
+  const [agendaViewDate, setAgendaViewDate] = useState(getTodayDateString());
+  const [agendaStartTime, setAgendaStartTime] = useState(6 * 60); // 6 AM
+  const [columnsToShow, setColumnsToShow] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
+  const [filterSearch, setFilterSearch] = useState("");
   const [filterDay, setFilterDay] = useState<number | null>(null);
   const [filterMonth, setFilterMonth] = useState<number | null>(null);
   const [filterYear, setFilterYear] = useState<number | null>(null);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [modal, setModal] = useState<{ open: boolean; date: string }>({ open: false, date: '' });
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [agendaViewType, setAgendaViewType] = useState<'event' | 'vendor' | 'both'>('event');
-  const [vendors, setVendors] = useState<VendorData[]>([]);
-  const [agendaStartTime, setAgendaStartTime] = useState(() => {
-    const stored = localStorage.getItem('agendaStartTime');
-    return stored !== null ? Number(stored) : 0;
-  });
+  const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
+  const [selectedSubEventIds, setSelectedSubEventIds] = useState<string[]>([]);
+  const [selectedVendorIds, setSelectedVendorIds] = useState<string[]>([]);
+  const [eventColors, setEventColors] = useState<Record<string, string>>({});
+  const [subEventColors, setSubEventColors] = useState<Record<string, string>>({});
+  const [vendorColors, setVendorColors] = useState<Record<string, string>>({});
   const [events, setEvents] = useState<EventData[]>([]);
-  const [subEvents, setSubEvents] = useState<SubEventData[]>([]);
-  const [selectedEventIds, setSelectedEventIds] = useState<string[]>(
-    () => {
-      try {
-        return JSON.parse(localStorage.getItem('selectedEventIds') || '[]');
-      } catch {
-        return [];
-      }
-    }
-  );
-  const [selectedSubEventIds, setSelectedSubEventIds] = useState<string[]>(
-    () => {
-      try {
-        return JSON.parse(localStorage.getItem('selectedSubEventIds') || '[]');
-      } catch {
-        return [];
-      }
-    }
-  );
-  const [selectedVendorIds, setSelectedVendorIds] = useState<string[]>(
-    () => {
-      try {
-        return JSON.parse(localStorage.getItem('selectedVendorIds') || '[]');
-      } catch {
-        return [];
-      }
-    }
-  );
-  const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
-  const filterDropdownRef = useRef<HTMLDivElement>(null);
-  const [eventColors, setEventColors] = useState<{ [id: string]: string }>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('eventColors') || '{}');
-    } catch {
-      return {};
-    }
-  });
-  const [subEventColors, setSubEventColors] = useState<{ [id: string]: string }>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('subEventColors') || '{}');
-    } catch {
-      return {};
-    }
-  });
-  const [vendorColors, setVendorColors] = useState<{ [id: string]: string }>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('vendorColors') || '{}');
-    } catch {
-      return {};
-    }
-  });
+  const [subEvents, setSubEventData] = useState<SubEventData[]>([]);
+  const [vendors, setVendors] = useState<VendorData[]>([]);
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
   const [hoveredBlockId, setHoveredBlockId] = useState<string | null>(null);
-  const [tooltipPos, setTooltipPos] = useState<{ x: number, y: number } | null>(null);
-  const [filterSearch, setFilterSearch] = useState("");
-  const [agendaViewDate, setAgendaViewDate] = useState(() => {
-    const stored = localStorage.getItem('agendaViewDate');
-    return stored || getTodayDateString();
+  const [collapsedEvents, setCollapsedEvents] = useState<Record<string, boolean>>({});
+  const [dateRange, setDateRange] = useState(() => {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return {
+      from: today.toISOString().slice(0, 10),
+      to: tomorrow.toISOString().slice(0, 10),
+    };
   });
-  const [columnsToShow, setColumnsToShow] = useState(() => {
-    const stored = localStorage.getItem('columnsToShow');
-    return stored ? Number(stored) : 1;
-  });
+  
+  // Load settings from localStorage on initial render
+  useEffect(() => {
+    const savedSettings = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (savedSettings) {
+      try {
+        const parsed = JSON.parse(savedSettings);
+        if (parsed.dateRange) setDateRange(parsed.dateRange);
+        if (parsed.agendaViewType) setAgendaViewType(parsed.agendaViewType);
+        if (parsed.filterSearch) setFilterSearch(parsed.filterSearch);
+        if (parsed.selectedEventIds) setSelectedEventIds(parsed.selectedEventIds);
+        if (parsed.selectedSubEventIds) setSelectedSubEventIds(parsed.selectedSubEventIds);
+        if (parsed.selectedVendorIds) setSelectedVendorIds(parsed.selectedVendorIds);
+        if (parsed.eventColors) setEventColors(parsed.eventColors);
+        if (parsed.subEventColors) setSubEventColors(parsed.subEventColors);
+        if (parsed.vendorColors) setVendorColors(parsed.vendorColors);
+        if (parsed.collapsedEvents) setCollapsedEvents(parsed.collapsedEvents);
+        if ('agendaStartTime' in parsed && parsed.agendaStartTime !== null) {
+          setAgendaStartTime(parsed.agendaStartTime);
+        }
+      } catch (error) {
+        console.error("Failed to parse plan page settings from localStorage", error);
+      }
+    }
+  }, []);
 
-  const months = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
-  ];
+  // Save settings to localStorage whenever they change
+  useEffect(() => {
+    const settingsToSave = {
+      dateRange,
+      agendaViewType,
+      filterSearch,
+      selectedEventIds,
+      selectedSubEventIds,
+      selectedVendorIds,
+      eventColors,
+      subEventColors,
+      vendorColors,
+      collapsedEvents,
+      agendaStartTime,
+    };
+    // Debounce saving to avoid excessive writes
+    const handler = setTimeout(() => {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(settingsToSave));
+    }, 500);
 
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [
+    dateRange,
+    agendaViewType,
+    filterSearch,
+    selectedEventIds,
+    selectedSubEventIds,
+    selectedVendorIds,
+    eventColors,
+    subEventColors,
+    vendorColors,
+    collapsedEvents,
+    agendaStartTime,
+  ]);
+  
+  const today = getToday();
+  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const yearRange = Array.from({ length: 10 }, (_, i) => today.year - 5 + i);
   const daysInActiveMonth = getDaysInMonth(current.year, current.month);
-  const yearRange = Array.from({ length: 101 }, (_, i) => today.year - 50 + i);
 
-  // Helper to generate all 30-min time options
-  const timeOptions = Array.from({ length: 48 }, (_, i) => {
-    const hour = Math.floor(i / 2);
-    const minute = i % 2 === 0 ? 0 : 30;
+  // Time options for start time dropdown
+  const timeOptions = Array.from({ length: 24 }, (_, i) => {
+    const hour = i;
+    const minute = 0;
     let hour12 = hour % 12 === 0 ? 12 : hour % 12;
     let ampm = hour < 12 ? "AM" : "PM";
     let label = `${hour12}:${minute === 0 ? "00" : "30"} ${ampm}`;
@@ -447,21 +947,21 @@ export default function PlanPage() {
   function handlePrev() {
     if (view === "month") {
       setCurrent(c => {
-        if (c.month === 0) return { year: c.year - 1, month: 11 };
-        return { year: c.year, month: c.month - 1 };
+        if (c.month === 0) return { year: c.year - 1, month: 11, date: c.date };
+        return { year: c.year, month: c.month - 1, date: c.date };
       });
     } else if (view === "year") {
-      setCurrent(c => ({ year: c.year - 1, month: c.month }));
+      setCurrent(c => ({ year: c.year - 1, month: c.month, date: c.date }));
     }
   }
   function handleNext() {
     if (view === "month") {
       setCurrent(c => {
-        if (c.month === 11) return { year: c.year + 1, month: 0 };
-        return { year: c.year, month: c.month + 1 };
+        if (c.month === 11) return { year: c.year + 1, month: 0, date: c.date };
+        return { year: c.year, month: c.month + 1, date: c.date };
       });
     } else if (view === "year") {
-      setCurrent(c => ({ year: c.year + 1, month: c.month }));
+      setCurrent(c => ({ year: c.year + 1, month: c.month, date: c.date }));
     }
   }
 
@@ -640,583 +1140,225 @@ export default function PlanPage() {
     const now = new Date(current.year, current.month, today.date);
     const weekStart = new Date(now);
     weekStart.setDate(now.getDate() - now.getDay());
-    const days: { date: number, month: number, year: number, isToday: boolean }[] = [];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(weekStart);
-      d.setDate(weekStart.getDate() + i);
-      days.push({
-        date: d.getDate(),
-        month: d.getMonth(),
-        year: d.getFullYear(),
-        isToday:
-          d.getDate() === today.date &&
-          d.getMonth() === today.month &&
-          d.getFullYear() === today.year,
-      });
-    }
+    const weekDays = Array.from({ length: 7 }, (_, i) => {
+      const date = new Date(weekStart);
+      date.setDate(weekStart.getDate() + i);
+      return date;
+    });
+
     return (
-      <div className="rounded-lg bg-gray-50 p-4 shadow-inner max-w-6xl mx-auto">
-        <div className="grid grid-cols-7 mb-2 text-center font-semibold text-gray-600">
-          {WEEKDAYS.map(d => <div key={d}>{d}</div>)}
-        </div>
-        <div className="grid grid-cols-7 gap-2">
-          {days.map((d, i) => (
+      <div className="grid grid-cols-7 gap-2">
+        {weekDays.map((date, i) => {
+          const dateStr = date.toISOString().slice(0, 10);
+          const dayTasks = tasks.filter(t => t.date === dateStr);
+          const dayEvents = events.filter(ev => ev.date === dateStr);
+          const isToday = date.toDateString() === new Date().toDateString();
+          
+          return (
             <div
               key={i}
-              className={`relative h-32 min-w-[10rem] rounded-lg flex flex-col items-center justify-start border transition-colors shadow-sm bg-white
-                ${d.isToday ? "border-blue-600" : "border-gray-200"}
-                hover:shadow-md hover:z-10 group`}
-              style={{ minWidth: 0 }}
+              className={`p-4 rounded-lg border ${
+                isToday ? "bg-blue-50 border-blue-600" : "bg-white border-gray-200"
+              }`}
             >
-              <div className="flex items-center justify-between w-full px-2 pt-2">
-                <div className={`font-bold text-lg ${d.isToday ? "text-white bg-blue-600 rounded-full w-7 h-7 flex items-center justify-center" : "text-gray-900"}`}>{d.date}</div>
-                <button
-                  className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-500 text-xl font-bold px-1 py-0.5 rounded hover:bg-blue-100"
-                  title="Add event (coming soon)"
-                  disabled
-                >
-                  +
-                </button>
+              <div className={`font-bold text-center mb-2 ${
+                isToday ? "text-blue-700" : "text-gray-900"
+              }`}>
+                {WEEKDAYS[i]}
+              </div>
+              <div className={`text-center mb-3 ${
+                isToday ? "text-blue-600" : "text-gray-600"
+              }`}>
+                {date.getDate()}
+              </div>
+              <div className="space-y-1">
+                {dayEvents.map((ev, idx) => (
+                  <div key={"event-" + idx} className="text-xs bg-blue-100 text-blue-800 rounded px-2 py-1 truncate">
+                    {ev.name}
+                  </div>
+                ))}
+                {dayTasks.map((t, idx) => (
+                  <div key={"task-" + idx} className="text-xs bg-gray-100 text-gray-700 rounded px-2 py-1 truncate cursor-pointer" onClick={() => setSelectedTask(t)}>
+                    {t.title}
+                  </div>
+                ))}
               </div>
             </div>
-          ))}
-        </div>
+          );
+        })}
       </div>
     );
   }
 
   function getVisibleTasks() {
     if (view === "month") {
-      const monthStr = String(current.month + 1).padStart(2, '0');
-      const yearStr = String(current.year);
-      return tasks.filter(t => t.date.startsWith(`${yearStr}-${monthStr}-`));
-    }
-    if (view === "week") {
-      const now = new Date(current.year, current.month, today.date);
-      const weekStart = new Date(now);
-      weekStart.setDate(now.getDate() - now.getDay());
-      const weekDates = Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(weekStart);
-        d.setDate(weekStart.getDate() + i);
-        return getDateString(d.getFullYear(), d.getMonth(), d.getDate());
+      return tasks.filter(t => {
+        const taskDate = new Date(t.date);
+        return taskDate.getMonth() === current.month && taskDate.getFullYear() === current.year;
       });
-      return tasks.filter(t => weekDates.includes(t.date));
     }
-    if (view === "day") {
-      const dateStr = getDateString(current.year, current.month, today.date);
-      return tasks.filter(t => t.date === dateStr);
-    }
-    if (view === "year") {
-      const yearStr = String(current.year);
-      return tasks.filter(t => t.date.startsWith(`${yearStr}-`));
-    }
-    return [];
+    return tasks;
   }
 
   function getTodayDateString() {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const today = new Date();
+    return today.toISOString().slice(0, 10);
   }
 
-  // Helper to get the selected date string based on view
   function getSelectedDateString() {
-    if (view === "month") {
-      // Use filterDay if set, otherwise today
-      const day = filterDay ?? today.date;
-      return getDateString(current.year, current.month, day);
-    }
-    if (view === "day") {
-      return getDateString(current.year, current.month, today.date);
-    }
-    // Add logic for week/year if needed
-    return getTodayDateString();
+    return getDateString(current.year, current.month, today.date);
   }
 
   function getAgendaTimelineData() {
-    // Map events and sub-events to a common shape
-    const eventBlocks = events.map(ev => ({
-      ...ev,
-      blockType: 'event',
-      startTime: (ev as any).startTime || (ev as any).start_time || (ev as any).time, // fallback for legacy
-      endTime: (ev as any).endTime || (ev as any).end_time || (ev as any).time,     // fallback for legacy
-      title: (ev as any).name,
-      color: eventColors[ev.id] || '#3b82f6', // blue-500 default
-    }));
-    const subEventBlocks = subEvents.map(se => ({
-      ...se,
-      blockType: 'subevent',
-      startTime: (se as any).startTime || (se as any).start_time || (se as any).time,
-      endTime: (se as any).endTime || (se as any).end_time || (se as any).time,
-      title: (se as any).name,
-      color: subEventColors[se.id] || '#a21caf', // purple-700 default
-    }));
-    const vendorBlocks = vendors.map(v => ({
-      ...v,
-      blockType: 'vendor',
-      startTime: (v as any).startTime || (v as any).start_time || (v as any).time,
-      endTime: (v as any).endTime || (v as any).end_time || (v as any).time,
-      title: (v as any).name,
-      color: vendorColors[v.id] || '#059669', // green-600 default
-    }));
-    return [...eventBlocks, ...subEventBlocks, ...vendorBlocks];
+    const allData: any[] = [];
+
+    events.forEach(ev => {
+        allData.push({
+            ...ev,
+            title: ev.name,
+            blockType: 'event',
+            color: eventColors[ev.id] || '#3b82f6',
+            id: `event-${ev.id}`,
+            startTime: (ev as any).start_time || '00:00',
+            endTime: (ev as any).end_time || '01:00',
+        });
+    });
+    
+    subEvents.forEach(se => {
+        allData.push({
+            ...se,
+            title: se.name,
+            blockType: 'subevent',
+            color: subEventColors[se.id] || '#8b5cf6',
+            id: `subevent-${se.id}`,
+            startTime: (se as any).start_time || '00:00',
+            endTime: (se as any).end_time || '01:00',
+        });
+    });
+    
+    vendors.forEach(v => {
+        allData.push({
+            ...v,
+            title: v.name,
+            blockType: 'vendor',
+            color: vendorColors[v.id] || '#10b981',
+            id: `vendor-${v.id}`,
+            startTime: v.start_time || '00:00',
+            endTime: v.end_time || '01:00',
+        });
+    });
+    
+    return allData;
   }
 
-  // Fetch events, sub-events, and vendors on mount
   useEffect(() => {
     async function fetchAll() {
-      // Get the current session
-      const { data: { session } } = await supabase.auth.getSession();
-      const userId = session?.user?.id;
-      if (!userId) return;
-      // Try to find an instance where the user is the owner
-      let { data: ownedInstances } = await supabase
-        .from('account_instances')
-        .select('id')
-        .eq('owner_user_id', userId)
-        .limit(1);
-      let accountInstanceId = null;
-      if (ownedInstances && ownedInstances.length > 0) {
-        accountInstanceId = ownedInstances[0].id;
-        console.log('[Plan] Using owned accountInstanceId:', accountInstanceId);
-      } else {
-        // Otherwise, find an instance where the user is a member
-        let { data: memberships } = await supabase
-          .from('account_instance_members')
-          .select('account_instance_id')
-          .eq('user_id', userId)
-          .limit(1);
-        if (memberships && memberships.length > 0) {
-          accountInstanceId = memberships[0].account_instance_id;
-          console.log('[Plan] Using member accountInstanceId:', accountInstanceId);
-        }
+      try {
+        const { data: eventsData } = await supabase.from('events').select('*');
+        const { data: subEventsData } = await supabase.from('sub_events').select('*');
+        const { data: vendorsData } = await supabase.from('vendors').select('*');
+        
+        if (eventsData) setEvents(eventsData);
+        if (subEventsData) setSubEventData(subEventsData);
+        if (vendorsData) setVendors(vendorsData);
+      } catch (error) {
+        console.error('Error fetching data:', error);
       }
-      if (!accountInstanceId) {
-        console.log('[Plan] No accountInstanceId found for user', userId);
-        setEvents([]);
-        setSubEvents([]);
-        setVendors([]);
-        return;
-      }
-      // Fetch only data for the user's instance
-      const { data: eventsData } = await supabase.from('events').select('*').eq('account_instance_id', accountInstanceId).order('date', { ascending: true });
-      if (eventsData) setEvents(eventsData);
-      const { data: subEventsData } = await supabase.from('sub_events').select('*').eq('account_instance_id', accountInstanceId);
-      if (subEventsData) setSubEvents(subEventsData.map(se => ({ ...se, parentEventId: se.parent_event_id })));
-      const { data: vendorsData } = await supabase.from('vendors').select('*').eq('account_instance_id', accountInstanceId).order('date', { ascending: true });
-      if (vendorsData) setVendors(vendorsData);
     }
+    
     fetchAll();
   }, []);
 
-  // Helper to update state and localStorage together
   function setAndPersistSelectedEventIds(ids: string[]) {
     setSelectedEventIds(ids);
     localStorage.setItem('selectedEventIds', JSON.stringify(ids));
-    localStorage.setItem('eventColors', JSON.stringify(eventColors));
   }
+
   function setAndPersistSelectedSubEventIds(ids: string[]) {
     setSelectedSubEventIds(ids);
     localStorage.setItem('selectedSubEventIds', JSON.stringify(ids));
-    localStorage.setItem('subEventColors', JSON.stringify(subEventColors));
   }
+
   function setAndPersistSelectedVendorIds(ids: string[]) {
     setSelectedVendorIds(ids);
     localStorage.setItem('selectedVendorIds', JSON.stringify(ids));
-    localStorage.setItem('vendorColors', JSON.stringify(vendorColors));
   }
 
-  // Close dropdown on outside click or Escape
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (filterDropdownRef.current && !filterDropdownRef.current.contains(e.target as Node)) {
-        setFilterDropdownOpen(false);
-      }
+      if (tooltipPos) setTooltipPos(null);
     }
     function handleEsc(e: KeyboardEvent) {
-      if (e.key === 'Escape') setFilterDropdownOpen(false);
+      if (e.key === 'Escape' && tooltipPos) setTooltipPos(null);
     }
-    if (filterDropdownOpen) {
-      document.addEventListener('mousedown', handleClick);
-      document.addEventListener('keydown', handleEsc);
-    }
+    document.addEventListener('click', handleClick);
+    document.addEventListener('keydown', handleEsc);
     return () => {
-      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('click', handleClick);
       document.removeEventListener('keydown', handleEsc);
     };
-  }, [filterDropdownOpen]);
+  }, [tooltipPos]);
 
-  // Filter agenda data by selected IDs
   function getAgendaTimelineDataFiltered(typeOverride?: 'event' | 'vendor') {
-    let data = getAgendaTimelineData();
-    data = data.filter(item => {
-      if (item.blockType === 'event') return selectedEventIds.includes(item.id);
-      if (item.blockType === 'subevent') return selectedSubEventIds.includes(item.id);
-      if (item.blockType === 'vendor') return selectedVendorIds.includes(item.id);
-      return false;
-    });
-    if (typeOverride === 'event') return data.filter(item => item.blockType === 'event' || item.blockType === 'subevent');
-    if (typeOverride === 'vendor') return data.filter(item => item.blockType === 'vendor');
-    return data;
+    const allData = getAgendaTimelineData();
+    const type = typeOverride || agendaViewType;
+    
+    if (type === 'event') {
+      return allData.filter(item => item.blockType === 'event' || item.blockType === 'subevent');
+    } else if (type === 'vendor') {
+      return allData.filter(item => item.blockType === 'vendor');
+    }
+    
+    return allData;
   }
 
-  // Helper to detect overlaps and assign width/offset
   function getBlockLayout(blocks: any[]): { width: string; left: number }[] {
-    // Sort by start time
-    const sorted = blocks.map((b: any, i: number) => ({ ...b, _origIndex: i })).sort((a: any, b: any) => {
-      const [aH, aM] = a.startTime.split(":").map(Number);
-      const [bH, bM] = b.startTime.split(":").map(Number);
-      return (aH * 60 + aM) - (bH * 60 + bM);
+    if (blocks.length === 0) return [];
+    
+    const sortedBlocks = [...blocks].sort((a, b) => {
+      const aStart = a.startTime.split(':').map(Number);
+      const bStart = b.startTime.split(':').map(Number);
+      return (aStart[0] * 60 + aStart[1]) - (bStart[0] * 60 + bStart[1]);
     });
-    const layout = Array(blocks.length).fill(null);
-    for (let i = 0; i < sorted.length; i++) {
-      const a: any = sorted[i];
-      const [aStartH, aStartM] = a.startTime.split(":").map(Number);
-      const [aEndH, aEndM] = a.endTime.split(":").map(Number);
-      const aStart = aStartH * 60 + aStartM;
-      const aEnd = aEndH * 60 + aEndM;
-      let overlapIdx = null;
-      for (let j = 0; j < i; j++) {
-        const b: any = sorted[j];
-        const [bStartH, bStartM] = b.startTime.split(":").map(Number);
-        const [bEndH, bEndM] = b.endTime.split(":").map(Number);
-        const bStart = bStartH * 60 + bStartM;
-        const bEnd = bEndH * 60 + bEndM;
-        // If overlap
-        if (aStart < bEnd && aEnd > bStart) {
-          overlapIdx = j;
+    
+    const layouts: { width: string; left: number }[] = [];
+    const overlappingGroups: any[][] = [];
+    
+    sortedBlocks.forEach(block => {
+      let addedToGroup = false;
+      for (const group of overlappingGroups) {
+        const lastBlock = group[group.length - 1];
+        const lastEnd = lastBlock.endTime.split(':').map(Number);
+        const blockStart = block.startTime.split(':').map(Number);
+        const lastEndMinutes = lastEnd[0] * 60 + lastEnd[1];
+        const blockStartMinutes = blockStart[0] * 60 + blockStart[1];
+        
+        if (blockStartMinutes < lastEndMinutes) {
+          group.push(block);
+          addedToGroup = true;
           break;
         }
       }
-      if (overlapIdx !== null) {
-        // Overlap: both get 80% width, offset 0px and 20px
-        layout[a._origIndex] = { width: '80%', left: 20 };
-        layout[sorted[overlapIdx]._origIndex] = { width: '80%', left: 0 };
-      } else {
-        layout[a._origIndex] = { width: '100%', left: 0 };
+      
+      if (!addedToGroup) {
+        overlappingGroups.push([block]);
       }
-    }
-    return layout;
-  }
-
-  function renderAgendaDayView(typeOverride?: 'event' | 'vendor') {
-    // Generate 48 intervals (30 min each) starting from agendaStartTime
-    const intervals = Array.from({ length: 48 }, (_, i) => {
-      const totalMinutes = (agendaStartTime + i * 30) % 1440;
-      const hour = Math.floor(totalMinutes / 60);
-      const minute = totalMinutes % 60;
-      let hour12 = hour % 12 === 0 ? 12 : hour % 12;
-      let ampm = hour < 12 ? "AM" : "PM";
-      let label = `${hour12}:${minute === 0 ? "00" : "30"} ${ampm}`;
-      return { label, hour, minute, index: i, totalMinutes };
     });
-    // Get agenda data
-    const agendaData = getAgendaTimelineDataFiltered(typeOverride);
-    // Find all unique dates in the filtered data, sorted
-    const uniqueDates = Array.from(new Set(agendaData.map(item => item.date))).filter(Boolean).sort();
-    // If no items, fallback to today
-    const todayStr = getTodayDateString();
-    const dateColumns = Array.from({ length: columnsToShow }, (_, i) => addDays(agendaViewDate, i));
-
-    // Helper: get blocks for a date
-    function getBlocksForDate(date: string) {
-      return agendaData.filter(item => item.date === date && item.startTime && item.endTime);
-    }
-
-    // Calculate block position/height for a given block
-    function getBlockPosition(item: any) {
-      const [startH, startM] = item.startTime.split(":").map(Number);
-      const [endH, endM] = item.endTime.split(":").map(Number);
-      let itemStart = startH * 60 + startM;
-      let itemEnd = endH * 60 + endM;
-      const gridStart = agendaStartTime;
-      const gridMinutes = 48 * 30;
-      // Clamp to grid
-      let blockStart = ((itemStart - gridStart + 1440) % 1440) / gridMinutes * (48 * 48);
-      let blockEnd = ((itemEnd - gridStart + 1440) % 1440) / gridMinutes * (48 * 48);
-      if (itemEnd <= itemStart) blockEnd = (48 * 48); // overnight
-      if (blockEnd > 48 * 48) blockEnd = 48 * 48;
-      if (blockStart < 0) blockStart = 0;
-      const blockHeight = Math.max(blockEnd - blockStart, 16);
-      return { blockStart, blockHeight };
-    }
-
-    // Determine if we are in split view (Both)
-    const isSplitView = agendaViewType === 'both';
-
-    return (
-      <div className="relative max-h-[80vh] overflow-x-auto border rounded-lg bg-white shadow-inner" style={{ minWidth: 350, position: 'relative', background: '#fff' }}>
-        {/* Grid lines spanning the entire itinerary (always visible) */}
-        <div
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            top: 0, // align with the very top of the block area
-            height: 48 * 48,
-            zIndex: 1,
-            pointerEvents: 'none',
-          }}
-        >
-          {intervals.map((interval, idx) => (
-            <div
-              key={idx}
-              style={{
-                position: 'absolute',
-                left: 0,
-                right: 0,
-                top: idx * 48 + 40, // offset for sticky headers
-                height: 0,
-                borderTop: '1px solid #e5e7eb',
-              }}
-            />
-          ))}
-        </div>
-        <div className="flex" style={{ minWidth: 90 + dateColumns.length * (isSplitView ? 180 : 1), position: 'relative', zIndex: 2 }}>
-          {/* Time grid column */}
-          <div style={{ width: 90, flexShrink: 0, position: 'relative', zIndex: 2, background: '#f9fafb' }}>
-            <div className="sticky top-0 bg-white z-10 font-bold text-center border-b py-2" style={{ whiteSpace: 'nowrap' }}>Time</div>
-            {intervals.map((interval, idx) => (
-              <div
-                key={idx}
-                className="flex items-center border-b border-gray-200 h-12 relative px-2"
-                style={{ minHeight: 48 }}
-              >
-                <div
-                  className="w-full text-right pr-2 text-gray-500 text-sm select-none"
-                  style={{ flexShrink: 0, whiteSpace: 'nowrap', overflow: 'visible' }}
-                >
-                  {interval.label}
-                </div>
-              </div>
-            ))}
-          </div>
-          {/* Date columns */}
-          {dateColumns.map(date => (
-            <div
-              key={date}
-              style={{ flex: 1, minWidth: 120, position: 'relative', borderLeft: '1px solid #e5e7eb', background: '#fff', zIndex: 2 }}
-            >
-              <div className="sticky top-0 bg-white z-10 font-bold text-center border-b py-2 border-l" style={{ borderColor: '#e5e7eb' }}>{date}</div>
-              {/* Blocks for this date */}
-              <div style={{ position: 'relative', height: 48 * 48, zIndex: 2, marginTop: 0 }}>
-                {getBlocksForDate(date).length === 0 && (
-                  <div className="text-gray-400 text-center py-8">No itinerary items for this day.</div>
-                )}
-                {getBlocksForDate(date).map((item, i, arr) => {
-                  const { blockStart, blockHeight } = getBlockPosition(item);
-                  const isEvent = item.blockType === 'event';
-                  const isSubEvent = item.blockType === 'subevent';
-                  const isVendor = item.blockType === 'vendor';
-                  const blockKey = item.id || `${date}-${i}`;
-                  // Get layout for all blocks in this column
-                  const blockLayouts = getBlockLayout(getBlocksForDate(date));
-                  const { width, left } = blockLayouts[i] || { width: '100%', left: 0 };
-                  const isHovered = hoveredBlockId === blockKey;
-                  function handleMouseMove(e: React.MouseEvent) {
-                    setTooltipPos({ x: e.clientX, y: e.clientY });
-                  }
-                  function handleMouseEnter() {
-                    setHoveredBlockId(blockKey);
-                  }
-                  function handleMouseLeave() {
-                    setHoveredBlockId(null);
-                    setTooltipPos(null);
-                  }
-                  // Custom style for subevent and vendor blocks
-                  if (isSubEvent) {
-                    return (
-                      <div
-                        key={blockKey}
-                        className={`absolute rounded shadow-md cursor-pointer flex items-stretch transition-all duration-150`}
-                        style={{
-                          top: blockStart,
-                          height: blockHeight,
-                          zIndex: isHovered ? 100 : 11,
-                          minHeight: 32,
-                          display: 'flex',
-                          alignItems: 'stretch',
-                          fontWeight: 500,
-                          opacity: 1,
-                          position: 'absolute',
-                          overflow: 'visible',
-                          width: `72%`,
-                          left: `26%`,
-                          border: '1px solid #e5e7eb',
-                          boxSizing: 'border-box',
-                          background: 'transparent',
-                        }}
-                        title={item.title}
-                        onMouseEnter={handleMouseEnter}
-                        onMouseLeave={handleMouseLeave}
-                        onMouseMove={isHovered ? handleMouseMove : undefined}
-                      >
-                        {/* Left color bar */}
-                        <div
-                          style={{
-                            width: '6.66%',
-                            minWidth: 4,
-                            maxWidth: 8,
-                            background: item.color,
-                            borderTopLeftRadius: 6,
-                            borderBottomLeftRadius: 6,
-                            borderTopRightRadius: 0,
-                            borderBottomRightRadius: 0,
-                            display: 'block',
-                          }}
-                        />
-                        {/* Content area with text */}
-                        <div
-                          style={{
-                            width: '93.34%',
-                            background: '#f3f4f6',
-                            borderTopRightRadius: 6,
-                            borderBottomRightRadius: 6,
-                            borderTopLeftRadius: 0,
-                            borderBottomLeftRadius: 0,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'flex-start',
-                            justifyContent: 'center',
-                            padding: '4px 8px',
-                            fontSize: isSplitView ? 13 : 15,
-                            color: '#222',
-                            flex: 1,
-                            minWidth: 0,
-                            overflow: 'hidden',
-                          }}
-                        >
-                          <span style={{ fontWeight: 700, fontSize: isSplitView ? 13 : 15, marginBottom: 2 }}>{item.title}</span>
-                          <span style={{ fontSize: isSplitView ? 11 : 12, color: '#666' }}>Sub-event &bull; {item.startTime} - {item.endTime}{item.location ? ` @ ${item.location}` : ''}</span>
-                        </div>
-                      </div>
-                    );
-                  }
-                  if (isVendor) {
-                    return (
-                      <div
-                        key={blockKey}
-                        className={`absolute left-2 right-2 rounded shadow-md cursor-pointer flex items-stretch transition-all duration-150`}
-                        style={{
-                          top: blockStart,
-                          height: blockHeight,
-                          zIndex: isHovered ? 100 : 8,
-                          minHeight: 32,
-                          display: 'flex',
-                          alignItems: 'stretch',
-                          fontWeight: 500,
-                          opacity: 1,
-                          position: 'absolute',
-                          overflow: 'visible',
-                          width,
-                          left,
-                          border: '1px solid #e5e7eb',
-                          boxSizing: 'border-box',
-                          background: 'transparent',
-                        }}
-                        title={item.title}
-                        onMouseEnter={handleMouseEnter}
-                        onMouseLeave={handleMouseLeave}
-                        onMouseMove={isHovered ? handleMouseMove : undefined}
-                      >
-                        {/* Left color bar */}
-                        <div
-                          style={{
-                            width: '6.66%',
-                            minWidth: 4,
-                            maxWidth: 8,
-                            background: item.color,
-                            borderTopLeftRadius: 6,
-                            borderBottomLeftRadius: 6,
-                            borderTopRightRadius: 0,
-                            borderBottomRightRadius: 0,
-                            display: 'block',
-                          }}
-                        />
-                        {/* Content area with text */}
-                        <div
-                          style={{
-                            width: '93.34%',
-                            background: '#f3f4f6',
-                            borderTopRightRadius: 6,
-                            borderBottomRightRadius: 6,
-                            borderTopLeftRadius: 0,
-                            borderBottomLeftRadius: 0,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'flex-start',
-                            justifyContent: 'center',
-                            padding: '4px 8px',
-                            fontSize: isSplitView ? 13 : 15,
-                            color: '#222',
-                            flex: 1,
-                            minWidth: 0,
-                            overflow: 'hidden',
-                          }}
-                        >
-                          <span style={{ fontWeight: 700, fontSize: isSplitView ? 13 : 15, marginBottom: 2 }}>{item.title}</span>
-                          <span style={{ fontSize: isSplitView ? 11 : 12, color: '#666' }}>Vendor &bull; {item.startTime} - {item.endTime}{item.location ? ` @ ${item.location}` : ''}</span>
-                        </div>
-                      </div>
-                    );
-                  }
-                  // ... existing code for event blocks ...
-                  return (
-                    <div
-                      key={blockKey}
-                      className={`absolute rounded shadow-md cursor-pointer flex items-center transition-all duration-150`}
-                      style={{
-                        top: blockStart,
-                        height: blockHeight,
-                        background: item.color,
-                        zIndex: isHovered ? 100 : 10,
-                        minHeight: 32,
-                        display: 'flex',
-                        alignItems: 'center',
-                        fontWeight: 700,
-                        boxShadow: '0 2px 12px 0 rgba(30,64,175,0.22)',
-                        opacity: 1,
-                        position: 'absolute',
-                        border: '1px solid #e5e7eb',
-                        boxSizing: 'border-box',
-                        overflow: 'visible',
-                        width: `25%`,
-                        left: 0,
-                        borderRadius: 6,
-                        padding: 0,
-                      }}
-                      title={item.title}
-                      onMouseEnter={handleMouseEnter}
-                      onMouseLeave={handleMouseLeave}
-                      onMouseMove={isHovered ? handleMouseMove : undefined}
-                    >
-                      {/* Content area with text */}
-                      <div
-                        style={{
-                          width: '100%',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'flex-start',
-                          justifyContent: 'center',
-                          padding: '4px 8px',
-                          fontSize: isSplitView ? 13 : 15,
-                          color: '#222',
-                          minWidth: 0,
-                          overflow: 'hidden',
-                          borderRadius: 6,
-                        }}
-                      >
-                        <span style={{ fontWeight: 700, fontSize: isSplitView ? 13 : 15, marginBottom: 2 }}>{item.title}</span>
-                        <span style={{ fontSize: isSplitView ? 11 : 12, color: '#666' }}>Event &bull; {item.startTime} - {item.endTime}{item.location ? ` @ ${item.location}` : ''}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+    
+    sortedBlocks.forEach(block => {
+      for (let i = 0; i < overlappingGroups.length; i++) {
+        const group = overlappingGroups[i];
+        const blockIndex = group.findIndex(b => b.id === block.id);
+        if (blockIndex !== -1) {
+          const width = group.length > 1 ? `${100 / group.length}%` : '100%';
+          const left = group.length > 1 ? (blockIndex * 100) / group.length : 0;
+          layouts.push({ width, left });
+          break;
+        }
+      }
+    });
+    
+    return layouts;
   }
 
   // Add useEffect to persist agendaStartTime whenever it changes
@@ -1246,13 +1388,36 @@ export default function PlanPage() {
   }, [columnsToShow]);
 
   const navItems = [
-    { label: 'Plan', href: '/plan', active: true },
+    { label: 'Plan', href: '/plan', active: tab === 'agenda', onClick: () => setTab('agenda') },
   ];
   const tempButtons = [
-    { label: 'Temp1' },
-    { label: 'Temp2' },
-    { label: 'Temp3' },
+    { label: 'Calendar', onClick: () => setTab('calendar'), active: tab === 'calendar' },
+    { label: 'Upcoming Events', onClick: () => setTab('upcoming'), active: tab === 'upcoming' },
+    { label: 'Past Events', onClick: () => setTab('past'), active: tab === 'past' },
   ];
+
+  // Add responsive container style
+  const containerStyle = {
+    width: '100%',
+    marginTop: 32,
+    marginBottom: 32,
+    paddingLeft: 'max(16px, 2vw)',
+    paddingRight: 'max(16px, 2vw)',
+    boxSizing: 'border-box' as const,
+    maxWidth: '100vw',
+    overflowX: 'hidden' as const,
+  };
+
+  const getFilteredItems = (itemType: 'event' | 'vendor') => {
+    const allItems = getAgendaTimelineDataFiltered(itemType);
+    return allItems.filter(item => {
+      const id = item.id.split('-').slice(1).join('-');
+      if (item.blockType === 'event') return selectedEventIds.includes(id);
+      if (item.blockType === 'subevent') return selectedSubEventIds.includes(id);
+      if (item.blockType === 'vendor') return selectedVendorIds.includes(id);
+      return false;
+    });
+  };
 
   return (
     <>
@@ -1261,33 +1426,13 @@ export default function PlanPage() {
         tempButtons={tempButtons}
         searchButton={{ onClick: () => alert('Search clicked!') }}
       />
-      <div
-        style={{
-          width: '100%',
-          marginTop: 32,
-          marginBottom: 32,
-          paddingLeft: 32,
-          paddingRight: 32,
-          boxSizing: 'border-box',
-        }}
-      >
-        <div className="flex gap-6 items-start">
-          <div className="flex-1">
-            <div className="flex gap-2 mb-6 border-b">
-              {TABS.map(t => (
-                <button
-                  key={t.key}
-                  className={`px-4 py-2 font-semibold border-b-2 transition-colors ${tab === t.key ? "border-blue-600 text-blue-700" : "border-transparent text-gray-600 hover:text-blue-600"}`}
-                  onClick={() => setTab(t.key)}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
+      <div style={containerStyle}>
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
+          <div className="flex-1 w-full">
             {tab === "calendar" && (
               <div>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
+                  <div className="flex gap-2 order-2 sm:order-1">
                     <button
                       className="px-2 py-1 rounded hover:bg-gray-100 border text-black bg-white"
                       onClick={handlePrev}
@@ -1303,18 +1448,18 @@ export default function PlanPage() {
                       &#8594;
                     </button>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2 order-3 sm:order-2">
                     {VIEW_OPTIONS.map(opt => (
                       <button
                         key={opt.key}
-                        className={`px-2 py-1 rounded ${view === opt.key ? "bg-blue-600 text-white" : "bg-white text-black hover:bg-gray-100"}`}
+                        className={`px-2 py-1 rounded text-sm ${view === opt.key ? "bg-blue-600 text-white" : "bg-white text-black hover:bg-gray-100"}`}
                         onClick={() => setView(opt.key as any)}
                       >
                         {opt.label}
                       </button>
                     ))}
                   </div>
-                  <div className="font-bold text-lg">
+                  <div className="font-bold text-lg order-1 sm:order-3 text-center sm:text-left">
                     {view === "month" && `${months[current.month]} ${current.year}`}
                     {view === "year" && current.year}
                     {view === "day" && `${months[current.month]} ${today.date}, ${current.year}`}
@@ -1398,231 +1543,211 @@ export default function PlanPage() {
             )}
             {tab === "agenda" && (
               <div>
-                <div className="flex items-center justify-between mb-4 w-full">
-                  {/* Centered itinerary view buttons */}
-                  <div className="flex-1 flex justify-center">
-                    <div className="flex gap-2 ml-20">
+                {/* Modern Header */}
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-lg p-6 mb-6 text-white">
+                  <h1 className="text-2xl font-bold mb-2">Event Planning Dashboard</h1>
+                  <p className="text-blue-100">Manage your event timeline and vendor schedules</p>
+                </div>
+
+                {/* View Controls */}
+                <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex flex-wrap gap-2">
                       <button
-                        className={`px-3 py-1 rounded font-semibold border ${agendaViewType === 'event' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-600 border-blue-200'}`}
+                        className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                          agendaViewType === 'event' 
+                            ? 'bg-blue-600 text-white shadow-md' 
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
                         onClick={() => setAgendaViewType('event')}
                       >
-                        Event Itinerary
+                        📅 Events Only
                       </button>
                       <button
-                        className={`px-3 py-1 rounded font-semibold border ${agendaViewType === 'vendor' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-green-600 border-green-200'}`}
+                        className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                          agendaViewType === 'vendor' 
+                            ? 'bg-green-600 text-white shadow-md' 
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
                         onClick={() => setAgendaViewType('vendor')}
                       >
-                        Vendor Itinerary
+                        👥 Vendors Only
                       </button>
                       <button
-                        className={`px-3 py-1 rounded font-semibold border ${agendaViewType === 'both' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-purple-600 border-purple-200'}`}
+                        className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                          agendaViewType === 'both' 
+                            ? 'bg-purple-600 text-white shadow-md' 
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
                         onClick={() => setAgendaViewType('both')}
                       >
-                        Both
+                        📊 Shared View
                       </button>
                     </div>
+                    {!showFilters ? (
+                      <button
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium shadow-md hover:bg-blue-700 transition-colors duration-200"
+                        onClick={() => setShowFilters(true)}
+                      >
+                        ⚙️ Filters
+                      </button>
+                    ) : (
+                      <button
+                        className="px-4 py-2 bg-gray-600 text-white rounded-lg font-medium shadow-md hover:bg-gray-700 transition-colors duration-200"
+                        onClick={() => setShowFilters(false)}
+                      >
+                        ✕ Hide Filters
+                      </button>
+                    )}
                   </div>
-                  {/* Show Filters button on the right */}
-                  {!showFilters && (
-                    <button
-                      className="ml-2 px-4 py-2 bg-blue-600 text-white rounded font-semibold shadow-lg hover:bg-blue-700 whitespace-nowrap"
-                      onClick={() => setShowFilters(true)}
-                    >
-                      Show Filters
-                    </button>
-                  )}
                 </div>
-                {['event', 'vendor', 'both'].includes(agendaViewType) && (
-                  <div className="sticky top-0 z-20 bg-white flex items-center justify-center gap-3 py-2 mb-2 shadow-sm rounded">
+
+                {/* Date Navigation */}
+                <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <label htmlFor="startDate" className="text-sm font-medium text-gray-700">From:</label>
+                      <input
+                        type="date"
+                        id="startDate"
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                        value={dateRange.from}
+                        onChange={e => setDateRange(dr => ({ ...dr, from: e.target.value }))}
+                        aria-label="Start date"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label htmlFor="endDate" className="text-sm font-medium text-gray-700">To:</label>
+                      <input
+                        type="date"
+                        id="endDate"
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                        value={dateRange.to}
+                        onChange={e => setDateRange(dr => ({ ...dr, to: e.target.value }))}
+                        aria-label="End date"
+                      />
+                    </div>
                     <button
-                      className="rounded px-2 py-1 hover:bg-gray-100 text-lg"
-                      onClick={() => setAgendaViewDate(addDays(agendaViewDate, -1))}
-                      aria-label="Previous day"
-                    >
-                      &#8592;
-                    </button>
-                    <span className="font-bold text-base sm:text-lg px-2">
-                      {columnsToShow === 1
-                        ? formatDateString(addDays(agendaViewDate, 1))
-                        : `${formatDateString(addDays(agendaViewDate, 1))} – ${formatDateString(addDays(agendaViewDate, columnsToShow))}`}
-                    </span>
-                    <button
-                      className="rounded px-2 py-1 hover:bg-gray-100 text-lg"
-                      onClick={() => setAgendaViewDate(addDays(agendaViewDate, 1))}
-                      aria-label="Next day"
-                    >
-                      &#8594;
-                    </button>
-                    <input
-                      type="date"
-                      className="ml-2 border rounded px-2 py-1 text-sm"
-                      value={agendaViewDate}
-                      onChange={e => setAgendaViewDate(e.target.value)}
-                      aria-label="Pick date"
-                      style={{ maxWidth: 140 }}
-                    />
-                    <button
-                      className="ml-2 px-2 py-1 rounded bg-blue-100 text-blue-700 font-semibold hover:bg-blue-200"
-                      onClick={() => setAgendaViewDate(getTodayDateString())}
+                      className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg font-medium hover:bg-blue-200 transition-colors duration-200"
+                      onClick={() => setDateRange({ from: getTodayDateString(), to: getTodayDateString() })}
                     >
                       Today
                     </button>
                   </div>
-                )}
-                {agendaViewType === 'both' ? (
-                  <div style={{ display: 'flex', gap: 16 }}>
-                    <div style={{ flex: 1, minWidth: 200, display: 'flex', flexDirection: 'column' }}>
-                      <div className="font-semibold text-blue-700 mb-2 text-center">Event Itinerary</div>
-                      {renderAgendaDayView('event')}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 200, display: 'flex', flexDirection: 'column' }}>
-                      <div className="font-semibold text-green-700 mb-2 text-center">Vendor Itinerary</div>
-                      {renderAgendaDayView('vendor')}
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ minWidth: 200 }}>
-                    {renderAgendaDayView(agendaViewType)}
-                  </div>
-                )}
+                </div>
+
+                {/* Modern Timeline View */}
+                <div className="h-[70vh] flex flex-col bg-white rounded-lg border border-gray-200 shadow-sm">
+                    <ItineraryView 
+                      key={agendaStartTime}
+                      type={agendaViewType} 
+                      agendaStartTime={agendaStartTime} 
+                      dateRange={dateRange}
+                      getFilteredItems={getFilteredItems}
+                      eventColors={eventColors}
+                      subEventColors={subEventColors}
+                      vendorColors={vendorColors}
+                      setHoveredBlockId={setHoveredBlockId}
+                      setTooltipPos={setTooltipPos}
+                      setSelectedTask={setSelectedTask}
+                    />
+                </div>
               </div>
             )}
           </div>
         </div>
+        
+        {/* Modern Filters Sidebar */}
         {showFilters && (
-          <div className="fixed right-0 top-0 h-full w-96 bg-white border-l shadow-lg z-40 p-6 flex flex-col gap-6">
-            <button
-              className="absolute left-0 top-4 -translate-x-full px-3 py-1 bg-blue-600 text-white rounded-l font-semibold shadow-lg hover:bg-blue-700"
-              onClick={() => setShowFilters(false)}
-            >
-              Hide Filters
-            </button>
-            {/* Modern search bar */}
-            <input
-              className="mb-4 px-3 py-2 rounded shadow border w-full focus:outline-none focus:ring-2 focus:ring-blue-400"
-              placeholder="Search events, sub-events, vendors..."
-              value={filterSearch}
-              onChange={e => setFilterSearch(e.target.value)}
-            />
-            {/* Agenda Filters Card (only for agenda tab) */}
+          <div className="fixed right-0 top-0 h-full w-full sm:w-96 bg-white border-l shadow-lg z-40 p-4 sm:p-6 flex flex-col gap-6 overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-gray-200 pb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Filters & Settings</h2>
+              <button
+                className="p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 text-gray-600 hover:text-gray-800"
+                onClick={() => setShowFilters(false)}
+                aria-label="Close filters"
+              >
+                ✕
+              </button>
+            </div>
+            
+            {/* Search */}
+            <div className="relative">
+              <input
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="🔍 Search events, sub-events, vendors..."
+                value={filterSearch}
+                onChange={e => setFilterSearch(e.target.value)}
+              />
+            </div>
+
+            {/* Agenda Filters */}
             {tab === 'agenda' && (
-              <div className="bg-gray-50 rounded-xl shadow p-4 flex flex-col gap-4">
-                <div className="font-bold text-lg mb-2">Agenda Filters</div>
-                {/* Events Section */}
-                <SectionFilter
-                  title="Events"
-                  items={events}
-                  selectedIds={selectedEventIds}
-                  onToggle={(id: any) => setAndPersistSelectedEventIds(selectedEventIds.includes(id) ? selectedEventIds.filter((eid: any) => eid !== id) : [...selectedEventIds, id])}
-                  colors={eventColors}
-                  onColorChange={(id: any, color: any) => setEventColors((c: any) => { const updated = { ...c, [id]: color }; localStorage.setItem('eventColors', JSON.stringify(updated)); return updated; })}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-gray-900">Agenda Filters</h3>
+                <EventFilterGroup
+                  events={events}
+                  subEvents={subEvents}
+                  selectedEventIds={selectedEventIds}
+                  onToggleEvent={(id: any) => setSelectedEventIds(selectedEventIds.includes(id) ? selectedEventIds.filter((eid: any) => eid !== id) : [...selectedEventIds, id])}
+                  eventColors={eventColors}
+                  onEventColorChange={(id: any, color: any) => setEventColors((c: any) => ({ ...c, [id]: color }))}
+                  selectedSubEventIds={selectedSubEventIds}
+                  onToggleSubEvent={(id: any) => setSelectedSubEventIds(selectedSubEventIds.includes(id) ? selectedSubEventIds.filter((sid: any) => sid !== id) : [...selectedSubEventIds, id])}
+                  subEventColors={subEventColors}
+                  onSubEventColorChange={(id: any, color: any) => setSubEventColors((c: any) => ({ ...c, [id]: color }))}
                   filterSearch={filterSearch}
-                  showMoreLimit={5}
                 />
-                {/* Sub-Events Section */}
-                <SectionFilter
-                  title="Sub-Events"
-                  items={subEvents}
-                  selectedIds={selectedSubEventIds}
-                  onToggle={(id: any) => setAndPersistSelectedSubEventIds(selectedSubEventIds.includes(id) ? selectedSubEventIds.filter((sid: any) => sid !== id) : [...selectedSubEventIds, id])}
-                  colors={subEventColors}
-                  onColorChange={(id: any, color: any) => setSubEventColors((c: any) => { const updated = { ...c, [id]: color }; localStorage.setItem('subEventColors', JSON.stringify(updated)); return updated; })}
-                  filterSearch={filterSearch}
-                  showMoreLimit={5}
-                />
-                {/* Vendors Section */}
                 <SectionFilter
                   title="Vendors"
                   items={vendors}
                   selectedIds={selectedVendorIds}
-                  onToggle={(id: any) => setAndPersistSelectedVendorIds(selectedVendorIds.includes(id) ? selectedVendorIds.filter((vid: any) => vid !== id) : [...selectedVendorIds, id])}
+                  onToggle={(id: any) => setSelectedVendorIds(selectedVendorIds.includes(id) ? selectedVendorIds.filter((vid: any) => vid !== id) : [...selectedVendorIds, id])}
                   colors={vendorColors}
-                  onColorChange={(id: any, color: any) => setVendorColors((c: any) => { const updated = { ...c, [id]: color }; localStorage.setItem('vendorColors', JSON.stringify(updated)); return updated; })}
+                  onColorChange={(id: any, color: any) => setVendorColors((c: any) => ({ ...c, [id]: color }))}
                   filterSearch={filterSearch}
                   showMoreLimit={5}
                 />
-                {/* Start time dropdown */}
-                <div className="flex gap-2 items-center mt-2">
-                  <span className="font-semibold text-gray-700">Start time:</span>
-                  <select
-                    className="border rounded px-2 py-1 text-sm"
-                    value={agendaStartTime}
-                    onChange={e => setAgendaStartTime(Number(e.target.value))}
-                  >
-                    {timeOptions.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                </div>
-                {/* Columns to Show dropdown */}
-                <div className="flex gap-2 items-center mt-2">
-                  <span className="font-semibold text-gray-700">Columns to show:</span>
-                  <select
-                    className="border rounded px-2 py-1 text-sm"
-                    value={columnsToShow}
-                    onChange={e => setColumnsToShow(Number(e.target.value))}
-                  >
-                    {[1,2,3,4,5,6,7].map(n => (
-                      <option key={n} value={n}>{n}</option>
-                    ))}
-                  </select>
+                
+                {/* Settings */}
+                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                  <h4 className="font-medium text-gray-900 mb-3">Display Settings</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+                      <select
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                        value={agendaStartTime}
+                        onChange={e => setAgendaStartTime(Number(e.target.value))}
+                      >
+                        {timeOptions.map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
-            {/* Divider */}
-            <hr className="my-4" />
-            {/* Calendar Filters Section (only for calendar tab) */}
-            {tab === 'calendar' && (
-              <div className="bg-gray-50 rounded-xl shadow p-4 flex flex-col gap-4">
-                <div className="font-bold text-lg mb-2 flex items-center gap-2">📅 Calendar Filters</div>
-                <div className="mb-2">
-                  <div className="font-semibold mb-1">Day</div>
-                  <select
-                    className="border rounded bg-white text-black px-2 py-1 w-full"
-                    value={filterDay ?? ""}
-                    onChange={e => setFilterDay(e.target.value ? Number(e.target.value) : null)}
-                  >
-                    <option value="">All Days</option>
-                    {Array.from({ length: daysInActiveMonth }, (_, i) => i + 1).map(day => (
-                      <option key={day} value={day}>{day}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="mb-2">
-                  <div className="font-semibold mb-1">Month</div>
-                  <select
-                    className="border rounded bg-white text-black px-2 py-1 w-full"
-                    value={filterMonth ?? current.month}
-                    onChange={e => setFilterMonth(Number(e.target.value))}
-                  >
-                    {months.map((m, idx) => (
-                      <option key={m} value={idx}>{m}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="mb-2">
-                  <div className="font-semibold mb-1">Year</div>
-                  <select
-                    className="border rounded bg-white text-black px-2 py-1 w-full"
-                    value={filterYear ?? current.year}
-                    onChange={e => setFilterYear(Number(e.target.value))}
-                  >
-                    {yearRange.map(y => (
-                      <option key={y} value={y}>{y}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            )}
-            {/* Clear Filters Button */}
-            <button
-              className="mt-4 px-3 py-2 bg-gray-200 text-black rounded font-semibold hover:bg-gray-300 w-full"
-              onClick={() => { setFilterDay(null); setFilterMonth(null); setFilterYear(null); setAndPersistSelectedEventIds([]); setAndPersistSelectedSubEventIds([]); setAndPersistSelectedVendorIds([]); }}
-            >
-              Clear Filters
-            </button>
+
+            {/* Action Buttons */}
+            <div className="mt-auto space-y-3 pt-4 border-t border-gray-200">
+              <button
+                className="w-full px-4 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors duration-200"
+                onClick={() => { setFilterDay(null); setFilterMonth(null); setFilterYear(null); setSelectedEventIds([]); setSelectedSubEventIds([]); setSelectedVendorIds([]); }}
+              >
+                Clear All Filters
+              </button>
+              <button
+                className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors duration-200"
+                onClick={() => setShowFilters(false)}
+              >
+                Close Filters
+              </button>
+            </div>
           </div>
         )}
+        
         {modal.open && (
           <TaskModal
             open={modal.open}
